@@ -1,0 +1,8 @@
+results/
+snnenv/
+__pycache__/
+*.pyc
+.DS_Store
+data_raw/
+*.egg-info/
+.pytest_cache/
