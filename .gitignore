@@ -7,3 +7,4 @@ data_raw/
 *.egg-info/
 .pytest_cache/
 .claude/
+.idea/
