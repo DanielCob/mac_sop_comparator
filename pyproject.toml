@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mac_sop_comparator"
+version = "0.1.0"
+description = "Comparación de eficiencia teórica MAC vs SOP entre una ANN densa y una SNN LIF sobre firmas moleculares."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "torch>=2.14",
+    "snntorch>=1.0",
+    "rdkit>=2026.3",
+    "numpy>=2.5",
+    "pandas>=3.0",
+    "scikit-learn>=1.9",
+    "pyyaml>=6.0",
+    "matplotlib>=3.11",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
