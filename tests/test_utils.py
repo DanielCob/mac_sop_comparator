@@ -1,4 +1,5 @@
 import logging
+import os
 
 import pytest
 import torch
@@ -31,10 +32,12 @@ def test_different_seeds_differ():
 
 
 def test_set_num_threads():
-    set_num_threads(2)
+    assert set_num_threads(2) == 2
     assert torch.get_num_threads() == 2
+    assert set_num_threads(0) == os.cpu_count()
+    assert torch.get_num_threads() == os.cpu_count()
     with pytest.raises(ValueError, match="n_threads"):
-        set_num_threads(0)
+        set_num_threads(-1)
 
 
 def test_get_device_cpu_and_invalid():
