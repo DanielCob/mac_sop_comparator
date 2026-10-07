@@ -1,3 +1,4 @@
+from mac_sop_comparator.config.loader import ConfigError, load_config, parse_config
 from mac_sop_comparator.config.schema import (
     AnnConfig,
     ArchitectureParams,
@@ -16,6 +17,7 @@ __all__ = [
     "AnnConfig",
     "ArchitectureParams",
     "Config",
+    "ConfigError",
     "DataConfig",
     "ExperimentConfig",
     "FingerprintConfig",
@@ -24,4 +26,6 @@ __all__ = [
     "SplitConfig",
     "SweepConfig",
     "TrainingConfig",
+    "load_config",
+    "parse_config",
 ]
