@@ -110,3 +110,12 @@ def test_invalid_yaml_and_wrong_top_level(tmp_path):
     bad.write_text("- just\n- a list\n")
     with pytest.raises(ConfigError, match="mapping"):
         load_config(bad)
+
+
+def test_shipped_experiment_config_is_valid():
+    from pathlib import Path
+
+    cfg = load_config(Path(__file__).parent.parent / "configs" / "tox21_sr_are.yaml")
+    assert cfg.data.task == "SR-ARE"
+    assert cfg.model.hidden_layers == [128, 64]
+    assert cfg.sweep is not None and cfg.sweep.T == [4, 8, 10, 16]

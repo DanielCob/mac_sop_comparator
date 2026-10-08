@@ -1,0 +1,25 @@
+# Experimento principal: Tox21 · SR-ARE, ANN densa vs SNN LIF homóloga.
+experiment: {name: tox21_sr_are, seed: 42, device: mps, n_threads: 0}   # n_threads solo aplica a CPU; 0 = todos los núcleos
+
+data:
+  dataset: tox21
+  task: SR-ARE
+  fingerprint: {type: morgan, n_bits: 1024, radius: 2}   # maccs -> 166 bits (sin bit 0)
+  split: {train: 0.8, val: 0.1, test: 0.1, method: stratified}
+
+model:
+  hidden_layers: [128, 64]        # la entrada se deriva de la firma
+  n_outputs: 2
+  ann: {activation: relu}
+  snn: {T: 10, beta: 0.95, threshold: 1.0, surrogate: arctan, reset: subtract}
+
+training: {optimizer: adam, lr: 1.0e-4, batch_size: 16, epochs: 100, patience: 15, class_weights: true}
+
+architecture:                     # valores ilustrativos; calibrar con el supervisor (D-21, D-23, D-24)
+  weight_bits: 32
+  e_mac: 1.0
+  e_ac: 0.2
+  e_upd: 0.3
+  memory_scenarios: [von_neumann, neuromorphic]
+
+sweep: {T: [4, 8, 10, 16], fingerprint: [maccs, morgan], max_points: 50}
