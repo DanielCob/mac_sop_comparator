@@ -82,6 +82,7 @@ def test_config_is_immutable():
         ("architecture.memory_scenarios", ["gpu"], "architecture.memory_scenarios.0"),
         ("model.snn.treshold", 1.0, "model.snn.treshold"),  # typo in a key
         ("sweep", {"T": [4, -8], "fingerprint": ["maccs"]}, "sweep.T.1"),
+        ("sweep", {"T": [4], "fingerprint": ["morgan"], "n_bits": [0]}, "sweep.n_bits.0"),
     ],
 )
 def test_invalid_value_names_the_failing_field(path, value, field):
@@ -119,3 +120,4 @@ def test_shipped_experiment_config_is_valid():
     assert cfg.data.task == "SR-ARE"
     assert cfg.model.hidden_layers == [128, 64]
     assert cfg.sweep is not None and cfg.sweep.T == [4, 8, 10, 16]
+    assert cfg.sweep.n_bits == [1024, 2048]

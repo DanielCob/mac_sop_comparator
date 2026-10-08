@@ -88,6 +88,7 @@ class ArchitectureParams(_Section):
 class SweepConfig(_Section):
     T: list[PositiveInt] = Field(min_length=1)
     fingerprint: list[FingerprintType] = Field(min_length=1)
+    n_bits: list[PositiveInt] | None = Field(default=None, min_length=1)  # morgan only; None = not swept
     max_points: int = Field(default=50, gt=0)
 
 
