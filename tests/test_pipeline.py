@@ -114,3 +114,35 @@ def test_real_tox21_pipeline_and_roundtrip(tmp_path):
     assert data.X.shape == (5825, 1024) and data.summary["n_positive"] == 942
     back = load_prepared(save_prepared(data, tmp_path))
     assert np.array_equal(back.X, data.X)
+
+
+def check_clean_dataset(data):
+    """ENT01 acceptance: no NaN, binary fingerprints, binary labels, no duplicate molecules, disjoint partitions."""
+    assert not np.isnan(data.X).any() and not np.isnan(data.y.astype(float)).any()
+    assert set(np.unique(data.X)) <= {0.0, 1.0} and set(np.unique(data.y)) <= {0, 1}
+    assert len(set(data.smiles)) == len(data.smiles) == len(data.X)
+    joined = np.concatenate(list(data.indices.values()))
+    assert len(joined) == len(set(joined.tolist())) == len(data.X)
+
+
+def test_prepared_data_meets_the_ent01_criteria(config, loader):
+    check_clean_dataset(prepare_data(config, loader=loader))
+
+
+def test_prepared_batch_goes_through_the_encoder_exactly(config, loader):
+    import torch
+
+    from mac_sop_comparator.data import SpikeEncoder, batches
+
+    train = prepare_data(config, loader=loader).partition("train")
+    x, _ = next(batches(train, 16))
+    spikes = SpikeEncoder(10).rate_encode(x)
+    assert spikes.shape == (10, 16, 1024) and all(torch.equal(spikes[t], x) for t in range(10))
+
+
+@pytest.mark.skipif(not REAL.is_file(), reason="tox21.csv.gz not cached in data_raw/")
+def test_real_tox21_meets_the_ent01_criteria():
+    from mac_sop_comparator.config import load_config
+
+    for name in ("tox21_sr_are.yaml", "tox21_sr_are_2048.yaml"):
+        check_clean_dataset(prepare_data(load_config(Path(__file__).parent.parent / "configs" / name)))
