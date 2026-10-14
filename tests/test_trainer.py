@@ -97,3 +97,36 @@ def test_trains_on_mps():
     model = fresh_model()
     res = Trainer(lr=1e-2, epochs=20, patience=20, device="mps").train(model, make_data(300, seed=1), make_data(100, seed=2))
     assert res.best_val_auc > 0.9 and next(model.parameters()).device.type == "mps"
+
+
+def test_training_curve_figure(tmp_path):
+    from mac_sop_comparator.training import plot_training_curve
+
+    res = Trainer(lr=1e-2, epochs=4).train(fresh_model(), make_data(200, seed=1), make_data(100, seed=2))
+    path = plot_training_curve(res.history, res.best_epoch, tmp_path / "sub" / "curve.png", "demo")
+    assert path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+REAL = __import__("pathlib").Path(__file__).parent.parent / "data_raw" / "tox21.csv.gz"
+
+
+@pytest.mark.skipif(not REAL.is_file(), reason="tox21.csv.gz not cached in data_raw/")
+def test_smoke_training_converges_on_a_small_real_subset():
+    """P3.9: with the project's own hyperparameters the ANN fits 300 real molecules (loss falls a lot)."""
+    from pathlib import Path
+
+    from mac_sop_comparator.config import load_config
+    from mac_sop_comparator.data import prepare_data
+    from mac_sop_comparator.models import ModelFactory
+
+    cfg = load_config(Path(__file__).parent.parent / "configs" / "tox21_sr_are.yaml")
+    prepared = prepare_data(cfg)
+    train = prepared.partition("train").subset(np.arange(300))
+    val = prepared.partition("val")
+    torch.manual_seed(cfg.experiment.seed)
+    model = ModelFactory.build(cfg.model, prepared.X.shape[1], "ann")
+    t = cfg.training
+    res = Trainer(t.optimizer, t.lr, t.batch_size, 30, 30, t.class_weights, "cpu", cfg.experiment.seed).train(model, train, val)
+    first, last = res.history[0]["train_loss"], res.history[-1]["train_loss"]
+    assert last < 0.25 * first  # it memorizes the small subset
+    assert res.best_val_auc > 0.6  # and it learned something that transfers

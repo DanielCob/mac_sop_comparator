@@ -100,7 +100,7 @@ def prepared(workdir):
 def test_train_ann_writes_checkpoint_metrics_and_opreport(prepared, capsys):
     assert main(["train", "--model", "ann", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
     point = prepared / "out" / "demo" / "morgan1024_r2_T4"
-    assert (point / "ann.pt").is_file()
+    assert (point / "ann.pt").is_file() and (point / "ann_curve.png").stat().st_size > 0
     metrics = json.loads((point / "ann_metrics.json").read_text())
     assert metrics["topology"] == [1024, 8, 2] and metrics["device"] == "cpu" and metrics["epochs_run"] == 2
     assert set(metrics["validation"]) == set(metrics["test"]) == {"roc_auc", "balanced_accuracy"}

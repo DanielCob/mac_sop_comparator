@@ -9,7 +9,7 @@ from mac_sop_comparator.config import Config, FingerprintConfig
 from mac_sop_comparator.data import fingerprint_id, load_prepared, prepared_dir
 from mac_sop_comparator.models import ModelFactory, load_checkpoint, save_checkpoint
 from mac_sop_comparator.profiling import MacProfiler, OpReport
-from mac_sop_comparator.training import Evaluator, Trainer
+from mac_sop_comparator.training import Evaluator, Trainer, plot_training_curve
 from mac_sop_comparator.utils import get_device, set_seed
 
 logger = logging.getLogger(__name__)
@@ -53,6 +53,7 @@ def train_ann(config: Config, results_dir: str | Path) -> dict:
         "history": result.history,
     }
     save_checkpoint(model, out / "ann.pt")
+    plot_training_curve(result.history, result.best_epoch, out / "ann_curve.png", f"{config.experiment.name} - ANN")
     (out / "ann_metrics.json").write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
     report = MacProfiler(model).measure(parts["test"])
     report.save(out / "opreport_ann.json")
