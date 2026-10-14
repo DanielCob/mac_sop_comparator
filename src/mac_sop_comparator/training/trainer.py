@@ -6,16 +6,15 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score
 from torch import nn
 
 from mac_sop_comparator.config import TrainingConfig
 from mac_sop_comparator.data import MolecularDataset, batches
 from mac_sop_comparator.models import BaseClassifier
+from mac_sop_comparator.training.evaluator import Evaluator, collect_outputs
 
 logger = logging.getLogger(__name__)
 
-EVAL_BATCH_SIZE = 512
 OPTIMIZERS = {"adam": torch.optim.Adam}
 
 
@@ -101,15 +100,7 @@ class Trainer:
             total, n = total + loss.detach() * len(y), n + len(y)
         return total.item() / n
 
-    @torch.no_grad()
     def _validate(self, model, data, criterion) -> tuple[float, float]:
-        model.eval()
-        outputs, labels = [], []
-        for x, y in batches(data, EVAL_BATCH_SIZE):
-            outputs.append(model(x.to(self.device)).cpu())
-            labels.append(y)
-        logits, y = torch.cat(outputs), torch.cat(labels)
-        if len(set(y.tolist())) < 2:
-            raise ValueError("the validation set needs both classes to compute the ROC-AUC")
+        logits, y = collect_outputs(model, data)
         loss = criterion(logits.to(self.device), y.to(self.device)).item()
-        return loss, float(roc_auc_score(y.numpy(), torch.softmax(logits, dim=1)[:, 1].numpy()))
+        return loss, Evaluator._roc_auc(y, logits)
