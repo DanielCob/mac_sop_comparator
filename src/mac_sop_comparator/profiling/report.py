@@ -12,24 +12,24 @@ MEMORY_SCENARIOS = ("von_neumann", "neuromorphic")
 class OpReport:
     """Operations of one inference (SNN values are averages per sample).
 
-    ANN: `macs`. SNN: `sops`, `updates` and `spikes_per_layer`. `biases` is the number of bias terms,
-    reported apart because they count neither as MACs nor as SOPs (D-16). `bytes_global` maps a memory
+    ANN: `macs`. SNN: `sops`, `state_updates` and `spikes_per_layer`. `biases` is the number of bias terms,
+    reported apart because they count neither as MACs nor as SOPs (D-16). `bytes_accessed` maps a memory
     scenario to the bytes moved; it stays None until the traffic model exists (phase 5).
     """
 
     architecture: str
     macs: int | None = None
     sops: float | None = None
-    updates: float | None = None
+    state_updates: float | None = None
     spikes_per_layer: list[float] | None = None
     biases: int | None = None
-    bytes_global: dict[str, float] | None = None
+    bytes_accessed: dict[str, float] | None = None
 
     def __post_init__(self) -> None:
         if self.architecture not in ARCHITECTURES:
             raise ValueError(f"architecture must be one of {ARCHITECTURES}, got '{self.architecture}'")
         ann_fields = {"macs": self.macs}
-        snn_fields = {"sops": self.sops, "updates": self.updates, "spikes_per_layer": self.spikes_per_layer}
+        snn_fields = {"sops": self.sops, "state_updates": self.state_updates, "spikes_per_layer": self.spikes_per_layer}
         own, other = (ann_fields, snn_fields) if self.architecture == "ann" else (snn_fields, ann_fields)
         missing = [k for k, v in own.items() if v is None]
         if missing:
@@ -37,16 +37,16 @@ class OpReport:
         extra = [k for k, v in other.items() if v is not None]
         if extra:
             raise ValueError(f"a {self.architecture.upper()} report cannot have {extra}")
-        for name in ("macs", "sops", "updates", "biases"):
+        for name in ("macs", "sops", "state_updates", "biases"):
             value = getattr(self, name)
             if value is not None and value < 0:
                 raise ValueError(f"{name} must be >= 0, got {value}")
         if self.spikes_per_layer is not None and any(s < 0 for s in self.spikes_per_layer):
             raise ValueError("spikes_per_layer must be >= 0")
-        if self.bytes_global is not None:
-            unknown = set(self.bytes_global) - set(MEMORY_SCENARIOS)
+        if self.bytes_accessed is not None:
+            unknown = set(self.bytes_accessed) - set(MEMORY_SCENARIOS)
             if unknown:
-                raise ValueError(f"bytes_global scenarios must be in {MEMORY_SCENARIOS}, got {sorted(unknown)}")
+                raise ValueError(f"bytes_accessed scenarios must be in {MEMORY_SCENARIOS}, got {sorted(unknown)}")
 
     def to_dict(self) -> dict:
         """The JSON schema: {"architecture": ..., "per_inference": {...}}."""
