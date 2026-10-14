@@ -83,3 +83,59 @@ def test_dataset_not_available_is_a_clean_error(workdir, capsys):
 def test_other_commands_are_not_implemented_yet(workdir, capsys):
     assert main(["compare", "--config", "c.yaml"]) == 1
     assert "not implemented" in capsys.readouterr().err
+
+
+# --- train / profile (ANN) ---------------------------------------------------------------------
+
+
+@pytest.fixture
+def prepared(workdir):
+    """workdir plus a CPU config (`cpu.yaml`) and the data already prepared into ./out."""
+    cpu = {**CONFIG, "experiment": {**CONFIG["experiment"], "device": "cpu"}, "training": {**CONFIG["training"], "epochs": 2}}
+    (workdir / "cpu.yaml").write_text(yaml.safe_dump(cpu))
+    assert main(["prepare", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    return workdir
+
+
+def test_train_ann_writes_checkpoint_metrics_and_opreport(prepared, capsys):
+    assert main(["train", "--model", "ann", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    point = prepared / "out" / "demo" / "morgan1024_r2_T4"
+    assert (point / "ann.pt").is_file()
+    metrics = json.loads((point / "ann_metrics.json").read_text())
+    assert metrics["topology"] == [1024, 8, 2] and metrics["device"] == "cpu" and metrics["epochs_run"] == 2
+    assert set(metrics["validation"]) == set(metrics["test"]) == {"roc_auc", "balanced_accuracy"}
+    assert len(metrics["history"]) == 2
+    report = json.loads((point / "opreport_ann.json").read_text())
+    assert report["architecture"] == "ann" and report["per_inference"]["macs"] == 1024 * 8 + 8 * 2
+    out = capsys.readouterr().out
+    assert "trained the ANN" in out and "8208 MACs" in out
+
+
+def test_train_is_reproducible(prepared):
+    def run():
+        assert main(["train", "--model", "ann", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+        return json.loads((prepared / "out" / "demo" / "morgan1024_r2_T4" / "ann_metrics.json").read_text())["history"]
+
+    assert run() == run()
+
+
+def test_profile_after_train(prepared, capsys):
+    main(["train", "--model", "ann", "--config", "cpu.yaml", "--results-dir", "out"])
+    capsys.readouterr()
+    assert main(["profile", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    assert "ann: 8208 MACs, 10 biases" in capsys.readouterr().out
+
+
+def test_train_without_prepared_data_says_what_to_run(workdir, capsys):
+    assert main(["train", "--model", "ann", "--config", "c.yaml", "--results-dir", "out"]) == 1
+    assert "prepare" in capsys.readouterr().err
+
+
+def test_profile_without_a_trained_model_says_what_to_run(prepared, capsys):
+    assert main(["profile", "--config", "cpu.yaml", "--results-dir", "out"]) == 1
+    assert "train --model ann" in capsys.readouterr().err
+
+
+def test_train_snn_is_not_implemented_yet(prepared, capsys):
+    assert main(["train", "--model", "snn", "--config", "cpu.yaml", "--results-dir", "out"]) == 1
+    assert "not implemented" in capsys.readouterr().err

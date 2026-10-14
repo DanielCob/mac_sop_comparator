@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mac_sop_comparator.config import Config, ConfigError, load_config
 from mac_sop_comparator.data import DataError, prepare_data, prepared_dir, save_prepared
+from mac_sop_comparator.experiments.stages import profile_models, train_ann
 from mac_sop_comparator.utils import set_num_threads, set_seed, setup_logging
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,26 @@ def _prepare(config: Config, results_dir: Path) -> int:
     return EXIT_OK
 
 
+def _train(config: Config, results_dir: Path, model: str) -> int:
+    if model != "ann":
+        print("error: 'train --model snn' is not implemented yet", file=sys.stderr)
+        return EXIT_ERROR
+    out = train_ann(config, results_dir)
+    m = out["metrics"]
+    print(
+        f"trained the ANN {m['topology']} for {m['epochs_run']} epochs (best {m['best_epoch']}): "
+        f"validation ROC-AUC {m['validation']['roc_auc']:.4f}, test ROC-AUC {m['test']['roc_auc']:.4f}, "
+        f"test balanced accuracy {m['test']['balanced_accuracy']:.4f}, {out['report'].macs} MACs -> {out['directory']}"
+    )
+    return EXIT_OK
+
+
+def _profile(config: Config, results_dir: Path) -> int:
+    for name, report in profile_models(config, results_dir).items():
+        print(f"{name}: {report.macs} MACs, {report.biases} biases (per inference)")
+    return EXIT_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -70,7 +91,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "prepare":
             return _prepare(config, results_dir)
-    except DataError as exc:
+        if args.command == "train":
+            return _train(config, results_dir, args.model)
+        if args.command == "profile":
+            return _profile(config, results_dir)
+    except (DataError, FileNotFoundError) as exc:
         logger.error("%s", exc)
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ERROR
