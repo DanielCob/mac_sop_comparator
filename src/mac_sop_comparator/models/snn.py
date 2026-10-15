@@ -41,6 +41,7 @@ class SnnClassifier(BaseClassifier):
             raise ValueError(f"reset must be one of {RESETS}, got '{reset}'")
         self.encoder = SpikeEncoder(T)  # validates T >= 1
         self.T, self.beta, self.threshold, self.reset = T, beta, threshold, reset
+        self.surrogate_name = surrogate_gradient
         self.fcs = nn.ModuleList(nn.Linear(n_in, n_out) for n_in, n_out in zip(self.topology[:-1], self.topology[1:]))
         self.lifs = nn.ModuleList(
             snn.Leaky(beta=beta, threshold=threshold, spike_grad=SURROGATES[surrogate_gradient](), reset_mechanism=reset)

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from mac_sop_comparator.config import Config, ConfigError, load_config
 from mac_sop_comparator.data import DataError, prepare_data, prepared_dir, save_prepared
-from mac_sop_comparator.experiments.stages import profile_models, train_ann
+from mac_sop_comparator.experiments.stages import profile_models, train_model
 from mac_sop_comparator.utils import set_num_threads, set_seed, setup_logging
 
 logger = logging.getLogger(__name__)
@@ -59,23 +59,27 @@ def _prepare(config: Config, results_dir: Path) -> int:
     return EXIT_OK
 
 
-def _train(config: Config, results_dir: Path, model: str) -> int:
-    if model != "ann":
-        print("error: 'train --model snn' is not implemented yet", file=sys.stderr)
-        return EXIT_ERROR
-    out = train_ann(config, results_dir)
-    m = out["metrics"]
+def _train(config: Config, results_dir: Path, kind: str) -> int:
+    out = train_model(config, results_dir, kind)
+    m, report = out["metrics"], out["report"]
+    cost = f"{report.macs} MACs" if kind == "ann" else f"{report.sops:.0f} SOPs"
     print(
-        f"trained the ANN {m['topology']} for {m['epochs_run']} epochs (best {m['best_epoch']}): "
+        f"trained the {kind.upper()} {m['topology']} for {m['epochs_run']} epochs (best {m['best_epoch']}): "
         f"validation ROC-AUC {m['validation']['roc_auc']:.4f}, test ROC-AUC {m['test']['roc_auc']:.4f}, "
-        f"test balanced accuracy {m['test']['balanced_accuracy']:.4f}, {out['report'].macs} MACs -> {out['directory']}"
+        f"test balanced accuracy {m['test']['balanced_accuracy']:.4f}, {cost} per inference -> {out['directory']}"
     )
     return EXIT_OK
 
 
 def _profile(config: Config, results_dir: Path) -> int:
     for name, report in profile_models(config, results_dir).items():
-        print(f"{name}: {report.macs} MACs, {report.biases} biases (per inference)")
+        if name == "ann":
+            print(f"ann: {report.macs} MACs, {report.biases} biases (per inference)")
+        else:
+            print(
+                f"snn: {report.sops:.1f} SOPs, {report.state_updates:.0f} state updates, {report.biases} biases "
+                f"(per inference, mean over the test set)"
+            )
     return EXIT_OK
 
 

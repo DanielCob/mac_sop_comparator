@@ -133,9 +133,38 @@ def test_train_without_prepared_data_says_what_to_run(workdir, capsys):
 
 def test_profile_without_a_trained_model_says_what_to_run(prepared, capsys):
     assert main(["profile", "--config", "cpu.yaml", "--results-dir", "out"]) == 1
-    assert "train --model ann" in capsys.readouterr().err
+    assert "'train' command" in capsys.readouterr().err
 
 
-def test_train_snn_is_not_implemented_yet(prepared, capsys):
-    assert main(["train", "--model", "snn", "--config", "cpu.yaml", "--results-dir", "out"]) == 1
-    assert "not implemented" in capsys.readouterr().err
+def test_train_snn_writes_its_artifacts(prepared, capsys):
+    assert main(["train", "--model", "snn", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    point = prepared / "out" / "demo" / "morgan1024_r2_T4"
+    assert (point / "snn.pt").is_file() and (point / "snn_curve.png").stat().st_size > 0
+    metrics = json.loads((point / "snn_metrics.json").read_text())
+    assert metrics["model"] == "snn" and metrics["snn"] == {"T": 4, "beta": 0.9, "threshold": 1.0, "reset": "subtract"}
+    report = json.loads((point / "opreport_snn.json").read_text())
+    assert report["architecture"] == "snn"
+    per = report["per_inference"]
+    assert per["macs"] is None and per["state_updates"] == 4 * (8 + 2) and len(per["spikes_per_layer"]) == 3
+    assert "trained the SNN" in capsys.readouterr().out
+
+
+def test_ann_and_snn_start_from_the_same_initial_weights(prepared):
+    from mac_sop_comparator.models import load_checkpoint
+
+    for kind in ("ann", "snn"):
+        assert main(["train", "--model", kind, "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    point = prepared / "out" / "demo" / "morgan1024_r2_T4"
+    assert [h["epoch"] for h in json.loads((point / "snn_metrics.json").read_text())["history"]] == [1, 2]
+    ann, snn = load_checkpoint(point / "ann.pt"), load_checkpoint(point / "snn.pt")
+    assert [p.shape for p in ann.parameters()] == [p.shape for p in snn.parameters()]
+
+
+def test_profile_reports_both_models_when_both_are_trained(prepared, capsys):
+    for kind in ("ann", "snn"):
+        main(["train", "--model", kind, "--config", "cpu.yaml", "--results-dir", "out"])
+    capsys.readouterr()
+    assert main(["profile", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    out = capsys.readouterr().out
+    assert "ann: 8208 MACs" in out and "snn: " in out and "SOPs" in out
+    assert "40 state updates" in out  # T * (8 + 2) = 4 * 10
