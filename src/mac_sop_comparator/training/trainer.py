@@ -60,7 +60,11 @@ class Trainer:
         )
 
     def train(self, model: BaseClassifier, train: MolecularDataset, val: MolecularDataset) -> TrainingResult:
-        """Train `model` in place; on return it holds the weights of the best validation ROC-AUC epoch."""
+        """Train `model` in place; on return it holds the weights of the best validation ROC-AUC epoch.
+
+        Works for the ANN (outputs are logits) and the SNN (outputs are spike counts used as logits, D-35):
+        backpropagation through time and the surrogate gradient happen inside the SNN's `forward`.
+        """
         model.to(self.device)
         weight = compute_class_weights(train.y, model.n_outputs).to(self.device) if self.class_weights else None
         criterion = nn.CrossEntropyLoss(weight=weight)
