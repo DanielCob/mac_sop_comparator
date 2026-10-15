@@ -3,6 +3,7 @@
 from mac_sop_comparator.config import ModelConfig
 from mac_sop_comparator.models.ann import AnnClassifier
 from mac_sop_comparator.models.base import BaseClassifier
+from mac_sop_comparator.models.snn import SnnClassifier
 
 KINDS = ("ann", "snn")
 
@@ -22,4 +23,5 @@ class ModelFactory:
         topology = ModelFactory.topology(model_cfg, n_inputs)
         if kind == "ann":
             return AnnClassifier(topology, model_cfg.ann.activation)
-        raise NotImplementedError("the SNN classifier is implemented in phase 4 (P4.1)")
+        snn = model_cfg.snn
+        return SnnClassifier(topology, snn.T, snn.beta, snn.threshold, snn.surrogate, snn.reset)
