@@ -5,7 +5,7 @@ from sklearn.metrics import balanced_accuracy_score, roc_auc_score
 
 from mac_sop_comparator.data import MolecularDataset
 from mac_sop_comparator.models import AnnClassifier
-from mac_sop_comparator.training import Evaluator, collect_outputs, positive_scores
+from mac_sop_comparator.training import Evaluator, collect_outputs
 
 
 def threshold_model(sign=1.0):
@@ -48,9 +48,9 @@ def test_matches_scikit_learn_on_random_scores():
     rng = np.random.default_rng(0)
     data = MolecularDataset((rng.random((300, 10)) < 0.3).astype(np.float32), rng.integers(0, 2, 300))
     model = AnnClassifier([10, 6, 2])
-    outputs, y = collect_outputs(model, data)
+    outputs, scores, y = collect_outputs(model, data)
     ev = Evaluator()
-    assert ev.roc_auc(model, data) == pytest.approx(roc_auc_score(y.numpy(), positive_scores(outputs).numpy()))
+    assert ev.roc_auc(model, data) == pytest.approx(roc_auc_score(y.numpy(), torch.softmax(outputs, dim=1)[:, 1].numpy()))
     assert ev.balanced_accuracy(model, data) == pytest.approx(balanced_accuracy_score(y.numpy(), outputs.argmax(1).numpy()))
 
 
@@ -70,8 +70,8 @@ def test_handles_more_samples_than_one_eval_batch():
     n = 1300  # > EVAL_BATCH_SIZE
     rng = np.random.default_rng(1)
     data = MolecularDataset((rng.random((n, 2)) < 0.5).astype(np.float32), rng.integers(0, 2, n))
-    outputs, y = collect_outputs(threshold_model(), data)
-    assert outputs.shape == (n, 2) and len(y) == n
+    outputs, scores, y = collect_outputs(threshold_model(), data)
+    assert outputs.shape == (n, 2) and scores.shape == (n,) and len(y) == n
 
 
 def test_roc_auc_needs_both_classes():

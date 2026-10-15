@@ -101,6 +101,6 @@ class Trainer:
         return total.item() / n
 
     def _validate(self, model, data, criterion) -> tuple[float, float]:
-        logits, y = collect_outputs(model, data)
+        logits, scores, y = collect_outputs(model, data)
         loss = criterion(logits.to(self.device), y.to(self.device)).item()
-        return loss, Evaluator._roc_auc(y, logits)
+        return loss, Evaluator._roc_auc(y, scores)

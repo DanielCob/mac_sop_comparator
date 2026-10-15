@@ -34,6 +34,13 @@ class BaseClassifier(nn.Module, ABC):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Class scores for a batch (ANN: logits; SNN: output spike counts)."""
 
+    def positive_scores(self, outputs: torch.Tensor) -> torch.Tensor:
+        """Score of the positive class (B,) from `outputs` just returned by `forward` (softmax).
+
+        Computed in float64 on the CPU (MPS has no float64): the scores are small vectors.
+        """
+        return torch.softmax(outputs.detach().cpu().double(), dim=1)[:, 1]
+
     @abstractmethod
     def layers(self) -> list[nn.Module]:
         """The weighted layers in order (nn.Linear for now), for the profilers to walk."""
