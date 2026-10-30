@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 from mac_sop_comparator.config import Config, ConfigError, load_config
-from mac_sop_comparator.data import DataError, prepare_data, prepared_dir, save_prepared
+from mac_sop_comparator.data import DataError, prepare_data, save_prepared
+from mac_sop_comparator.experiments.layout import ResultsLayout
 from mac_sop_comparator.experiments.stages import profile_models, train_model
 from mac_sop_comparator.utils import set_num_threads, set_seed, setup_logging
 
@@ -40,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _setup(config: Config, results_dir: Path) -> None:
-    setup_logging(results_dir / config.experiment.name / "run.log")
+    setup_logging(ResultsLayout(results_dir, config).log_path)
     set_seed(config.experiment.seed)
     n_threads = set_num_threads(config.experiment.n_threads)
     logger.info("experiment '%s': seed %d, %d CPU threads", config.experiment.name, config.experiment.seed, n_threads)
@@ -50,7 +51,7 @@ def _prepare(config: Config, results_dir: Path) -> int:
     logger.info("[1/2] preparing data")
     prepared = prepare_data(config)
     logger.info("[2/2] saving")
-    out = save_prepared(prepared, prepared_dir(results_dir, config))
+    out = save_prepared(prepared, ResultsLayout(results_dir, config).data_dir)
     s = prepared.summary
     print(
         f"prepared {s['n_molecules']} molecules ({s['n_features']} features, "

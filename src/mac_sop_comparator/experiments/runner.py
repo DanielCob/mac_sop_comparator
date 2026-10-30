@@ -10,8 +10,9 @@ import torch
 
 from mac_sop_comparator.comparison import PointResult, ReportBuilder
 from mac_sop_comparator.config import Config
-from mac_sop_comparator.data import prepare_data, prepared_dir, save_prepared
-from mac_sop_comparator.experiments.stages import load_point_result, point_dir, profile_models, train_model
+from mac_sop_comparator.data import prepare_data, save_prepared
+from mac_sop_comparator.experiments.layout import ResultsLayout
+from mac_sop_comparator.experiments.stages import load_point_result, profile_models, train_model
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ class ExperimentRunner:
     def __init__(self, config: Config, results_dir: str | Path = "results"):
         self.config = config
         self.results_dir = Path(results_dir)
+        self.layout = ResultsLayout(results_dir, config)
         self.state = S.IDLE
         self.history: list[RunnerState] = [S.IDLE]
 
@@ -119,7 +121,7 @@ class ExperimentRunner:
     # Stages ---------------------------------------------------------------------------------------
 
     def _prepare_data(self) -> None:
-        save_prepared(prepare_data(self.config), prepared_dir(self.results_dir, self.config))
+        save_prepared(prepare_data(self.config), self.layout.data_dir)
 
     def _train(self) -> None:
         """Trains both models; `train_model` also scores them on validation and test and saves their curves."""
@@ -138,4 +140,4 @@ class ExperimentRunner:
         return load_point_result(self.config, self.results_dir)
 
     def _report(self, point: PointResult) -> dict[str, Path]:
-        return ReportBuilder.build_all([point], point_dir(self.results_dir, self.config) / "report")
+        return ReportBuilder.build_all([point], self.layout.report_dir)

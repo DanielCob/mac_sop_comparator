@@ -7,7 +7,8 @@ from mac_sop_comparator.comparison import EfficiencyMetrics, PointResult
 from mac_sop_comparator.config import parse_config
 from mac_sop_comparator.experiments import runner as runner_module
 from mac_sop_comparator.experiments.runner import TRANSITIONS, ExperimentError, ExperimentRunner, RunnerState as S
-from mac_sop_comparator.experiments.stages import load_point_result, point_dir
+from mac_sop_comparator.experiments.layout import ResultsLayout
+from mac_sop_comparator.experiments.stages import load_point_result
 from mac_sop_comparator.profiling import OpReport
 
 CONFIG = {
@@ -149,7 +150,7 @@ def test_default_stages_call_the_pipeline_functions(monkeypatch, tmp_path):
 
 
 def write_point(cfg, tmp_path, ann_topology=(1024, 8, 2), snn_topology=(1024, 8, 2), skip=()):
-    out = point_dir(tmp_path, cfg)
+    out = ResultsLayout(tmp_path, cfg).point_dir
     out.mkdir(parents=True)
     for kind, topology, auc, bal in (("ann", ann_topology, 0.74, 0.69), ("snn", snn_topology, 0.70, 0.66)):
         metrics = {"topology": list(topology), "test": {"roc_auc": auc, "balanced_accuracy": bal}}
@@ -180,8 +181,8 @@ def test_load_point_result_uses_the_real_input_size_for_maccs(tmp_path):
     raw["data"]["fingerprint"] = {"type": "maccs", "n_bits": 1024, "radius": 2}
     cfg = parse_config(raw)
     write_point(cfg, tmp_path, (166, 8, 2), (166, 8, 2))
-    OpReport("ann", macs=166 * 8 + 16).save(point_dir(tmp_path, cfg) / "opreport_ann.json")
-    OpReport("snn", sops=50.0, state_updates=40.0, spikes_per_layer=[10.0, 3.0, 1.0]).save(point_dir(tmp_path, cfg) / "opreport_snn.json")
+    OpReport("ann", macs=166 * 8 + 16).save(ResultsLayout(tmp_path, cfg).point_dir / "opreport_ann.json")
+    OpReport("snn", sops=50.0, state_updates=40.0, spikes_per_layer=[10.0, 3.0, 1.0]).save(ResultsLayout(tmp_path, cfg).point_dir / "opreport_snn.json")
     assert load_point_result(cfg, tmp_path).group == "maccs166"
 
 

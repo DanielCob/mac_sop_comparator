@@ -168,3 +168,23 @@ def test_profile_reports_both_models_when_both_are_trained(prepared, capsys):
     out = capsys.readouterr().out
     assert "ann: 8208 MACs" in out and "snn: " in out and "SOPs" in out
     assert "40 state updates" in out  # T * (8 + 2) = 4 * 10
+
+
+def test_separate_commands_find_each_others_artifacts(prepared, capsys):
+    """prepare -> train ann -> train snn -> profile run as separate commands; the point is then rebuilt from files."""
+    from mac_sop_comparator.config import load_config
+    from mac_sop_comparator.experiments.layout import ResultsLayout
+    from mac_sop_comparator.experiments.stages import load_point_result
+
+    config = load_config("cpu.yaml")
+    layout = ResultsLayout("out", config)
+    assert not layout.point_dir.exists()
+    for kind in ("ann", "snn"):
+        assert main(["train", "--model", kind, "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    assert main(["profile", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    for kind in ("ann", "snn"):
+        assert all(path.is_file() for path in (layout.model_path(kind), layout.metrics_path(kind), layout.curve_path(kind), layout.opreport_path(kind)))
+    assert layout.log_path.is_file() and (layout.data_dir / "dataset.npz").is_file()
+    point = load_point_result(config, "out")
+    assert point.point_id == layout.point_id == "morgan1024_r2_T4"
+    assert point.metrics.n_mac == 1024 * 8 + 8 * 2 and point.T == 4

@@ -1,4 +1,4 @@
-"""Pipeline stages shared by the CLI commands (and later by the ExperimentRunner)."""
+"""Pipeline stages shared by the CLI commands and the ExperimentRunner."""
 
 import json
 import logging
@@ -6,25 +6,15 @@ import time
 from pathlib import Path
 
 from mac_sop_comparator.comparison import EfficiencyMetrics, PointResult
-from mac_sop_comparator.config import Config, FingerprintConfig
-from mac_sop_comparator.data import fingerprint_id, load_prepared, prepared_dir
+from mac_sop_comparator.config import Config
+from mac_sop_comparator.data import load_prepared
+from mac_sop_comparator.experiments.layout import KINDS, ResultsLayout
 from mac_sop_comparator.models import ModelFactory, SnnClassifier, load_checkpoint, save_checkpoint
 from mac_sop_comparator.profiling import MacProfiler, OpReport, SopProfiler
 from mac_sop_comparator.training import Evaluator, Trainer, plot_training_curve
 from mac_sop_comparator.utils import get_device, set_seed
 
 logger = logging.getLogger(__name__)
-
-KINDS = ("ann", "snn")
-
-
-def point_id(config: Config, fp: FingerprintConfig | None = None) -> str:
-    """Identifies a design-space point: fingerprint and SNN time steps, e.g. `morgan1024_r2_T10` (D-25)."""
-    return f"{fingerprint_id(fp or config.data.fingerprint)}_T{config.model.snn.T}"
-
-
-def point_dir(results_dir: str | Path, config: Config, fp: FingerprintConfig | None = None) -> Path:
-    return Path(results_dir) / config.experiment.name / point_id(config, fp)
 
 
 def _profile(model, test_data) -> OpReport:
@@ -35,11 +25,10 @@ def _profile(model, test_data) -> OpReport:
 
 def train_model(config: Config, results_dir: str | Path, kind: str) -> dict:
     """Train and evaluate one model on the prepared data; save checkpoint, metrics, curve and OpReport."""
-    if kind not in KINDS:
-        raise ValueError(f"model kind must be one of {KINDS}, got '{kind}'")
-    prepared = load_prepared(prepared_dir(results_dir, config))
+    layout = ResultsLayout(results_dir, config)
+    layout.model_path(kind)  # validates the kind
+    prepared = load_prepared(layout.data_dir)
     parts = prepared.partitions()
-    out = point_dir(results_dir, config)
     device = get_device(config.experiment.device)
 
     set_seed(config.experiment.seed)  # the ANN and the SNN start from the same initial weights
@@ -65,45 +54,45 @@ def train_model(config: Config, results_dir: str | Path, kind: str) -> dict:
     }
     if kind == "snn":
         metrics["snn"] = {"T": model.T, "beta": model.beta, "threshold": model.threshold, "reset": model.reset}
-    save_checkpoint(model, out / f"{kind}.pt")
-    plot_training_curve(result.history, result.best_epoch, out / f"{kind}_curve.png", f"{config.experiment.name} - {kind.upper()}")
-    (out / f"{kind}_metrics.json").write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
+    save_checkpoint(model, layout.model_path(kind))
+    plot_training_curve(result.history, result.best_epoch, layout.curve_path(kind), f"{config.experiment.name} - {kind.upper()}")
+    layout.metrics_path(kind).write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
     report = _profile(model, parts["test"])
-    report.save(out / f"opreport_{kind}.json")
+    report.save(layout.opreport_path(kind))
     logger.info("test: %s", metrics["test"])
-    return {"directory": out, "metrics": metrics, "report": report}
+    return {"directory": layout.point_dir, "metrics": metrics, "report": report}
 
 
 def profile_models(config: Config, results_dir: str | Path) -> dict[str, OpReport]:
     """Measure the operations of the trained models found for this point (ANN and/or SNN)."""
-    out = point_dir(results_dir, config)
-    found = [kind for kind in KINDS if (out / f"{kind}.pt").is_file()]
+    layout = ResultsLayout(results_dir, config)
+    found = [kind for kind in KINDS if layout.model_path(kind).is_file()]
     if not found:
-        raise FileNotFoundError(f"no trained model in {out}; run the 'train' command first (--model ann or snn)")
-    test = load_prepared(prepared_dir(results_dir, config)).partition("test")
+        raise FileNotFoundError(f"no trained model in {layout.point_dir}; run the 'train' command first (--model ann or snn)")
+    test = load_prepared(layout.data_dir).partition("test")
     reports = {}
     for kind in found:
-        reports[kind] = _profile(load_checkpoint(out / f"{kind}.pt"), test)
-        reports[kind].save(out / f"opreport_{kind}.json")
+        reports[kind] = _profile(load_checkpoint(layout.model_path(kind)), test)
+        reports[kind].save(layout.opreport_path(kind))
     return reports
 
 
 def load_point_result(config: Config, results_dir: str | Path) -> PointResult:
     """Rebuild the PointResult of a point from the artifacts of its trained ANN and SNN (D-39)."""
-    out = point_dir(results_dir, config)
-    missing = [f"{kind}{suffix}" for kind in KINDS for suffix in (".pt", "_metrics.json") if not (out / f"{kind}{suffix}").is_file()]
-    missing += [f"opreport_{kind}.json" for kind in KINDS if not (out / f"opreport_{kind}.json").is_file()]
+    layout = ResultsLayout(results_dir, config)
+    needed = [path for kind in KINDS for path in (layout.model_path(kind), layout.metrics_path(kind), layout.opreport_path(kind))]
+    missing = [path.name for path in needed if not path.is_file()]
     if missing:
-        raise FileNotFoundError(f"{out} lacks {missing}; train and profile both models first")
-    metrics = {kind: json.loads((out / f"{kind}_metrics.json").read_text(encoding="utf-8")) for kind in KINDS}
-    ann, snn = (OpReport.load(out / f"opreport_{kind}.json") for kind in KINDS)
+        raise FileNotFoundError(f"{layout.point_dir} lacks {missing}; train and profile both models first")
+    metrics = {kind: json.loads(layout.metrics_path(kind).read_text(encoding="utf-8")) for kind in KINDS}
+    ann, snn = (OpReport.load(layout.opreport_path(kind)) for kind in KINDS)
     if metrics["ann"]["topology"] != metrics["snn"]["topology"]:
         raise ValueError(f"the ANN {metrics['ann']['topology']} and the SNN {metrics['snn']['topology']} are not homologous")
     topology = metrics["ann"]["topology"]
     T = metrics["snn"]["snn"]["T"]
     fp = config.data.fingerprint
     return PointResult(
-        point_id=point_id(config),
+        point_id=layout.point_id,
         fingerprint=fp.type,
         n_bits=topology[0],  # the real input size: 166 for MACCS whatever `n_bits` says
         T=T,
