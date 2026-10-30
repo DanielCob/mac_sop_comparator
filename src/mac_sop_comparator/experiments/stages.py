@@ -5,6 +5,7 @@ import logging
 import time
 from pathlib import Path
 
+from mac_sop_comparator.comparison import EfficiencyMetrics, PointResult
 from mac_sop_comparator.config import Config, FingerprintConfig
 from mac_sop_comparator.data import fingerprint_id, load_prepared, prepared_dir
 from mac_sop_comparator.models import ModelFactory, SnnClassifier, load_checkpoint, save_checkpoint
@@ -85,3 +86,33 @@ def profile_models(config: Config, results_dir: str | Path) -> dict[str, OpRepor
         reports[kind] = _profile(load_checkpoint(out / f"{kind}.pt"), test)
         reports[kind].save(out / f"opreport_{kind}.json")
     return reports
+
+
+def load_point_result(config: Config, results_dir: str | Path) -> PointResult:
+    """Rebuild the PointResult of a point from the artifacts of its trained ANN and SNN (D-39)."""
+    out = point_dir(results_dir, config)
+    missing = [f"{kind}{suffix}" for kind in KINDS for suffix in (".pt", "_metrics.json") if not (out / f"{kind}{suffix}").is_file()]
+    missing += [f"opreport_{kind}.json" for kind in KINDS if not (out / f"opreport_{kind}.json").is_file()]
+    if missing:
+        raise FileNotFoundError(f"{out} lacks {missing}; train and profile both models first")
+    metrics = {kind: json.loads((out / f"{kind}_metrics.json").read_text(encoding="utf-8")) for kind in KINDS}
+    ann, snn = (OpReport.load(out / f"opreport_{kind}.json") for kind in KINDS)
+    if metrics["ann"]["topology"] != metrics["snn"]["topology"]:
+        raise ValueError(f"the ANN {metrics['ann']['topology']} and the SNN {metrics['snn']['topology']} are not homologous")
+    topology = metrics["ann"]["topology"]
+    T = metrics["snn"]["snn"]["T"]
+    fp = config.data.fingerprint
+    return PointResult(
+        point_id=point_id(config),
+        fingerprint=fp.type,
+        n_bits=topology[0],  # the real input size: 166 for MACCS whatever `n_bits` says
+        T=T,
+        ann_auc=metrics["ann"]["test"]["roc_auc"],
+        snn_auc=metrics["snn"]["test"]["roc_auc"],
+        ann_balanced_accuracy=metrics["ann"]["test"]["balanced_accuracy"],
+        snn_balanced_accuracy=metrics["snn"]["test"]["balanced_accuracy"],
+        ann_report=ann,
+        snn_report=snn,
+        metrics=EfficiencyMetrics.compute(ann, snn, config.architecture, T, topology),
+        params=config.architecture,
+    )
