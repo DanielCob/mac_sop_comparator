@@ -80,8 +80,8 @@ def test_dataset_not_available_is_a_clean_error(workdir, capsys):
     assert "save it manually" in capsys.readouterr().err
 
 
-def test_other_commands_are_not_implemented_yet(workdir, capsys):
-    assert main(["compare", "--config", "c.yaml"]) == 1
+def test_sweep_is_not_implemented_yet(workdir, capsys):
+    assert main(["sweep", "--config", "c.yaml"]) == 1
     assert "not implemented" in capsys.readouterr().err
 
 
@@ -188,3 +188,54 @@ def test_separate_commands_find_each_others_artifacts(prepared, capsys):
     point = load_point_result(config, "out")
     assert point.point_id == layout.point_id == "morgan1024_r2_T4"
     assert point.metrics.n_mac == 1024 * 8 + 8 * 2 and point.T == 4
+
+
+def test_compare_summarizes_and_writes_the_reports(prepared, capsys):
+    for kind in ("ann", "snn"):
+        main(["train", "--model", kind, "--config", "cpu.yaml", "--results-dir", "out"])
+    capsys.readouterr()
+    assert main(["compare", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    out = capsys.readouterr().out
+    assert "point morgan1024_r2_T4 (T = 4)" in out and "ROC-AUC (test)" in out
+    assert "8208 MACs" in out and "40 state updates" in out and "critical r* = " in out
+    assert "costs use the energies of the config (e_mac 1, e_ac 0.2, e_upd 0.3)" in out
+    report = prepared / "out" / "demo" / "morgan1024_r2_T4" / "report"
+    assert report.name in out
+    assert sorted(p.name for p in report.iterdir()) == [
+        "auc_vs_cost.png", "metrics.csv", "operations.png", "opreports.json", "rates.png",
+    ]  # fmt: skip
+
+
+def test_compare_without_the_trained_models_is_a_clean_error(prepared, capsys):
+    main(["train", "--model", "ann", "--config", "cpu.yaml", "--results-dir", "out"])
+    capsys.readouterr()
+    assert main(["compare", "--config", "cpu.yaml", "--results-dir", "out"]) == 1
+    err = capsys.readouterr().err
+    assert "lacks" in err and "snn.pt" in err and "train and profile both models first" in err
+
+
+def test_run_does_everything_and_prints_the_summary(workdir, capsys):
+    cpu = {**CONFIG, "experiment": {**CONFIG["experiment"], "device": "cpu"}, "training": {**CONFIG["training"], "epochs": 2}}
+    (workdir / "cpu.yaml").write_text(yaml.safe_dump(cpu))
+    assert main(["run", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
+    out = capsys.readouterr().out
+    assert "point morgan1024_r2_T4 (T = 4)" in out and "SNN" in out and "reports -> " in out
+    point = workdir / "out" / "demo" / "morgan1024_r2_T4"
+    assert (point / "ann.pt").is_file() and (point / "snn.pt").is_file() and (point / "report" / "metrics.csv").is_file()
+    log = (workdir / "out" / "demo" / "run.log").read_text()
+    assert "state: idle -> configured" in log and "state: reporting -> idle" in log
+
+
+def test_run_reports_the_failing_stage(workdir, capsys):
+    (workdir / "data_raw" / "tox21.csv.gz").unlink()  # the data stage cannot get the dataset
+    assert main(["run", "--config", "c.yaml", "--results-dir", "out"]) == 1
+    err = capsys.readouterr().err
+    assert "error: preparing data failed" in err and "save it manually" in err
+    log = (workdir / "out" / "demo" / "run.log").read_text()
+    assert "state: configured -> error" in log and "state: error -> idle" in log and "preparing data failed" in log
+
+
+def test_run_with_an_invalid_config_exits_with_2(workdir, capsys):
+    bad = {**CONFIG, "model": {**CONFIG["model"], "snn": {"T": 0, "beta": 0.9, "threshold": 1.0}}}
+    (workdir / "bad.yaml").write_text(yaml.safe_dump(bad))
+    assert main(["run", "--config", "bad.yaml"]) == 2

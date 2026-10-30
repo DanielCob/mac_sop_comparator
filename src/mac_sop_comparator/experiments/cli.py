@@ -5,10 +5,12 @@ import logging
 import sys
 from pathlib import Path
 
+from mac_sop_comparator.comparison import PointResult, ReportBuilder
 from mac_sop_comparator.config import Config, ConfigError, load_config
 from mac_sop_comparator.data import DataError, prepare_data, save_prepared
 from mac_sop_comparator.experiments.layout import ResultsLayout
-from mac_sop_comparator.experiments.stages import profile_models, train_model
+from mac_sop_comparator.experiments.runner import ExperimentError, ExperimentRunner
+from mac_sop_comparator.experiments.stages import load_point_result, profile_models, train_model
 from mac_sop_comparator.utils import set_num_threads, set_seed, setup_logging
 
 logger = logging.getLogger(__name__)
@@ -84,6 +86,36 @@ def _profile(config: Config, results_dir: Path) -> int:
     return EXIT_OK
 
 
+def _summary(point: PointResult, report_dir: Path) -> str:
+    m, p = point.metrics, point.params
+    verdict = "SNN cheaper" if m.snn_cheaper else "ANN cheaper"
+    return "\n".join(
+        [
+            f"point {point.point_id} (T = {point.T})",
+            f"ROC-AUC (test)     ANN {point.ann_auc:.4f}   SNN {point.snn_auc:.4f}",
+            f"operations         ANN {m.n_mac:.0f} MACs   SNN {m.n_sop:.0f} SOPs + {m.n_upd:.0f} state updates",
+            f"activity           r = {m.r:.4f}   critical r* = {m.r_critical:.4f}",
+            f"relative cost      ANN {m.cost_ann:.0f}   SNN {m.cost_snn:.0f}   (ratio {m.cost_ratio:.4f}, {verdict})",
+            f"costs use the energies of the config (e_mac {p.e_mac:g}, e_ac {p.e_ac:g}, e_upd {p.e_upd:g})",
+            f"reports -> {report_dir}",
+        ]
+    )
+
+
+def _compare(config: Config, results_dir: Path) -> int:
+    layout = ResultsLayout(results_dir, config)
+    point = load_point_result(config, results_dir)
+    ReportBuilder.build_all([point], layout.report_dir)
+    print(_summary(point, layout.report_dir))
+    return EXIT_OK
+
+
+def _run(config: Config, results_dir: Path) -> int:
+    result = ExperimentRunner(config, results_dir).run()
+    print(_summary(result.point, ResultsLayout(results_dir, config).report_dir))
+    return EXIT_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -100,7 +132,11 @@ def main(argv: list[str] | None = None) -> int:
             return _train(config, results_dir, args.model)
         if args.command == "profile":
             return _profile(config, results_dir)
-    except (DataError, FileNotFoundError) as exc:
+        if args.command == "compare":
+            return _compare(config, results_dir)
+        if args.command == "run":
+            return _run(config, results_dir)
+    except (DataError, FileNotFoundError, ExperimentError) as exc:
         logger.error("%s", exc)
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ERROR

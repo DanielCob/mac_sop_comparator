@@ -111,6 +111,7 @@ class ExperimentRunner:
             self._transition(S.IDLE)
         except Exception as exc:
             logger.exception("%s failed", stage)
+            logger.info("state: %s -> %s", self.state.value, S.ERROR.value)
             self.state = S.ERROR  # reachable from every working state
             self.history.append(S.ERROR)
             self._release()
