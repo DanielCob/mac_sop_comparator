@@ -42,7 +42,8 @@ def fingerprint_id(fp: FingerprintConfig) -> str:
 
 def prepared_dir(results_dir: str | Path, config: Config, fp: FingerprintConfig | None = None) -> Path:
     fp = fp or config.data.fingerprint
-    return Path(results_dir) / config.experiment.name / "data" / fingerprint_id(fp)
+    """Prepared data of a fingerprint and seed: the seed fixes the split, so each seed has its own data (D-44)."""
+    return Path(results_dir) / config.experiment.name / "data" / f"{fingerprint_id(fp)}_s{config.experiment.seed}"
 
 
 def prepare_data(

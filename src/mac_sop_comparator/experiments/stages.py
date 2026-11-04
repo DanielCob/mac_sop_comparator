@@ -1,5 +1,6 @@
 """Pipeline stages shared by the CLI commands and the ExperimentRunner."""
 
+import hashlib
 import json
 import logging
 import time
@@ -21,6 +22,20 @@ def _profile(model, test_data) -> OpReport:
     """MACs for the ANN, SOPs for the SNN, over the whole test set (D-31)."""
     profiler = SopProfiler if isinstance(model, SnnClassifier) else MacProfiler
     return profiler(model).measure(test_data)
+
+
+def ann_cache_key(config: Config) -> str:
+    """Hash of everything the trained ANN depends on (not T, beta or the threshold): the sweep reuses it (D-26, D-44)."""
+    payload = {
+        "data": config.data.model_dump(),
+        "hidden_layers": config.model.hidden_layers,
+        "n_outputs": config.model.n_outputs,
+        "ann": config.model.ann.model_dump(),
+        "training": config.training.model_dump(),
+        "seed": config.experiment.seed,
+        "device": config.experiment.device,
+    }
+    return hashlib.sha1(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
 def train_model(config: Config, results_dir: str | Path, kind: str) -> dict:
@@ -52,6 +67,8 @@ def train_model(config: Config, results_dir: str | Path, kind: str) -> dict:
         "train_seconds": round(seconds, 2),  # wall-clock, informative only: not a comparison metric
         "history": result.history,
     }
+    if kind == "ann":
+        metrics["cache_key"] = ann_cache_key(config)
     if kind == "snn":
         metrics["snn"] = {"T": model.T, "beta": model.beta, "threshold": model.threshold, "reset": model.reset}
     save_checkpoint(model, layout.model_path(kind))
@@ -105,4 +122,6 @@ def load_point_result(config: Config, results_dir: str | Path) -> PointResult:
         snn_report=traffic.annotate(snn),
         metrics=EfficiencyMetrics.compute(ann, snn, config.architecture, T, topology),
         params=config.architecture,
+        hidden_layers=tuple(topology[1:-1]),
+        seed=metrics["ann"].get("seed"),
     )

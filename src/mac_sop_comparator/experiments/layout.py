@@ -2,8 +2,9 @@
 
     results/<experiment>/
     ├── run.log
-    ├── data/<fingerprint>/{dataset.npz, summary.json}
-    └── <fingerprint>_T<T>/                 e.g. morgan1024_r2_T10
+    ├── data/<fingerprint>_s<seed>/{dataset.npz, summary.json}
+    ├── sweep/{points.csv, failed.csv}      consolidated sweep results (D-44)
+    └── <fingerprint>_h<layers>_T<T>_s<seed>/       e.g. morgan1024_r2_h128-64_T10_s42
         ├── {ann,snn}.pt, {ann,snn}_metrics.json, {ann,snn}_curve.png, opreport_{ann,snn}.json
         └── report/{metrics.csv, opreports.json, *.png}
 
@@ -39,8 +40,13 @@ class ResultsLayout:
 
     @property
     def point_id(self) -> str:
-        """Identifies a design-space point: fingerprint and SNN time steps, e.g. `morgan1024_r2_T10`."""
-        return f"{fingerprint_id(self.fp)}_T{self.config.model.snn.T}"
+        """Identifies a design-space point: fingerprint, hidden layers, SNN time steps and seed (D-44)."""
+        hidden = "-".join(str(n) for n in self.config.model.hidden_layers)
+        return f"{fingerprint_id(self.fp)}_h{hidden}_T{self.config.model.snn.T}_s{self.config.experiment.seed}"
+
+    @property
+    def sweep_dir(self) -> Path:
+        return self.experiment_dir / "sweep"
 
     @property
     def point_dir(self) -> Path:

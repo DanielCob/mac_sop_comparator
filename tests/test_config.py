@@ -87,6 +87,10 @@ def test_config_is_immutable():
         ("model.snn.treshold", 1.0, "model.snn.treshold"),  # typo in a key
         ("sweep", {"T": [4, -8], "fingerprint": ["maccs"]}, "sweep.T.1"),
         ("sweep", {"T": [4], "fingerprint": ["morgan"], "n_bits": [0]}, "sweep.n_bits.0"),
+        ("sweep", {"T": [4], "fingerprint": ["maccs"], "hidden_layers": [[]]}, "sweep.hidden_layers.0"),
+        ("sweep", {"T": [4], "fingerprint": ["maccs"], "hidden_layers": [[8, 0]]}, "sweep.hidden_layers.0.1"),
+        ("sweep", {"T": [4], "fingerprint": ["maccs"], "seeds": [-1]}, "sweep.seeds.0"),
+        ("sweep", {"T": [4], "fingerprint": ["maccs"], "seeds": []}, "sweep.seeds"),
     ],
 )
 def test_invalid_value_names_the_failing_field(path, value, field):

@@ -23,8 +23,12 @@ class PointResult:
     snn_report: OpReport
     metrics: MetricSet
     params: ArchitectureParams
+    hidden_layers: tuple[int, ...] = ()  # empty when unknown
+    seed: int | None = None
 
     @property
     def group(self) -> str:
-        """Fingerprint family used to group points that differ only in T, e.g. `morgan1024`."""
-        return f"{self.fingerprint}{self.n_bits}"
+        """Family of points that differ only in T, e.g. `morgan1024`, plus topology and seed when known."""
+        hidden = f"_h{'-'.join(map(str, self.hidden_layers))}" if self.hidden_layers else ""
+        seed = f"_s{self.seed}" if self.seed is not None else ""
+        return f"{self.fingerprint}{self.n_bits}{hidden}{seed}"

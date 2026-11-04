@@ -138,10 +138,10 @@ def test_default_stages_call_the_pipeline_functions(monkeypatch, tmp_path):
     )
     result = ExperimentRunner(cfg, tmp_path).run()
     assert calls[0] == "prepare" and calls[1][:2] == ("save", "prepared")
-    assert calls[1][2] == tmp_path / "demo" / "data" / "morgan1024_r2"
+    assert calls[1][2] == tmp_path / "demo" / "data" / "morgan1024_r2_s42"
     assert calls[2:4] == [("train", "ann"), ("train", "snn")]
     assert calls[4:7] == ["load", "profile", "load"]
-    report_dir = tmp_path / "demo" / "morgan1024_r2_T4" / "report"
+    report_dir = tmp_path / "demo" / "morgan1024_r2_h8_T4_s42" / "report"
     assert calls[7] == ("build", [point], report_dir) and result.paths == {"csv": report_dir}
     assert result.states == HAPPY_PATH
 
@@ -168,12 +168,12 @@ def test_load_point_result(tmp_path):
     cfg = config()
     write_point(cfg, tmp_path)
     p = load_point_result(cfg, tmp_path)
-    assert (p.point_id, p.fingerprint, p.n_bits, p.T) == ("morgan1024_r2_T4", "morgan", 1024, 4)
+    assert (p.point_id, p.fingerprint, p.n_bits, p.T) == ("morgan1024_r2_h8_T4_s42", "morgan", 1024, 4)
     assert (p.ann_auc, p.snn_auc, p.ann_balanced_accuracy, p.snn_balanced_accuracy) == (0.74, 0.70, 0.69, 0.66)
     assert p.metrics.n_mac == 1024 * 8 + 16 and p.metrics.n_sop == 500.0
     assert p.metrics.r == pytest.approx(500 / (4 * p.metrics.n_mac))
     assert p.metrics.rate_per_layer == pytest.approx([27 / (1024 * 4), 3 / (8 * 4), 1 / (2 * 4)])
-    assert p.params == cfg.architecture and p.group == "morgan1024"
+    assert p.params == cfg.architecture and p.group == "morgan1024_h8"  # no seed in the hand-written metrics
 
 
 def test_load_point_result_uses_the_real_input_size_for_maccs(tmp_path):
@@ -183,7 +183,7 @@ def test_load_point_result_uses_the_real_input_size_for_maccs(tmp_path):
     write_point(cfg, tmp_path, (166, 8, 2), (166, 8, 2))
     OpReport("ann", macs=166 * 8 + 16).save(ResultsLayout(tmp_path, cfg).point_dir / "opreport_ann.json")
     OpReport("snn", sops=50.0, state_updates=40.0, spikes_per_layer=[10.0, 3.0, 1.0]).save(ResultsLayout(tmp_path, cfg).point_dir / "opreport_snn.json")
-    assert load_point_result(cfg, tmp_path).group == "maccs166"
+    assert load_point_result(cfg, tmp_path).group == "maccs166_h8"
 
 
 @pytest.mark.parametrize("missing", ["snn.pt", "ann_metrics.json"])

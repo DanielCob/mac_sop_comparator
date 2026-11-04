@@ -40,4 +40,4 @@ architecture:                     # energías relativas a un MAC (e_mac = 1); na
     b_o: "4 bytes, D-23"
     inference_batch: "1: peor caso von Neumann (D-23)"
 
-sweep: {T: [4, 8, 10, 16], fingerprint: [maccs, morgan], max_points: 50}   # sin barrer n_bits: esta variante fija 2048
+sweep: {T: [4, 8, 10, 16], fingerprint: [maccs, morgan], hidden_layers: [[16], [128, 64], [256, 128]], max_points: 50}   # sin barrer n_bits: esta variante fija 2048

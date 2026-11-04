@@ -131,8 +131,8 @@ def test_the_firing_rate_reaches_both_extremes_of_its_range():
 
 
 RESULTS = Path(__file__).parent.parent / "results" / "tox21_sr_are"
-CHECKPOINT = RESULTS / "morgan1024_r2_T10" / "snn.pt"
-PREPARED = RESULTS / "data" / "morgan1024_r2"
+CHECKPOINT = RESULTS / "morgan1024_r2_h128-64_T10_s42" / "snn.pt"
+PREPARED = RESULTS / "data" / "morgan1024_r2_s42"
 
 
 @pytest.mark.skipif(not (CHECKPOINT.is_file() and PREPARED.is_dir()), reason="run prepare and train --model snn first")

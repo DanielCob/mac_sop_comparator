@@ -8,7 +8,7 @@ from mac_sop_comparator.experiments.cli import main
 
 def test_prepare_writes_artifacts_and_log(workdir, capsys):
     assert main(["prepare", "--config", "c.yaml", "--results-dir", "out"]) == 0
-    data_dir = workdir / "out" / "demo" / "data" / "morgan1024_r2"
+    data_dir = workdir / "out" / "demo" / "data" / "morgan1024_r2_s42"
     assert (data_dir / "dataset.npz").is_file()
     assert json.loads((data_dir / "summary.json").read_text())["n_molecules"] == 200
     assert "prepared 200 molecules" in capsys.readouterr().out
@@ -18,7 +18,7 @@ def test_prepare_writes_artifacts_and_log(workdir, capsys):
 
 def test_results_dir_defaults_to_results(workdir):
     assert main(["prepare", "--config", "c.yaml"]) == 0
-    assert (workdir / "results" / "demo" / "data" / "morgan1024_r2" / "dataset.npz").is_file()
+    assert (workdir / "results" / "demo" / "data" / "morgan1024_r2_s42" / "dataset.npz").is_file()
 
 
 def test_missing_config_file(workdir, capsys):
@@ -58,7 +58,7 @@ def prepared(workdir):
 
 def test_train_ann_writes_checkpoint_metrics_and_opreport(prepared, capsys):
     assert main(["train", "--model", "ann", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
-    point = prepared / "out" / "demo" / "morgan1024_r2_T4"
+    point = prepared / "out" / "demo" / "morgan1024_r2_h8_T4_s42"
     assert (point / "ann.pt").is_file() and (point / "ann_curve.png").stat().st_size > 0
     metrics = json.loads((point / "ann_metrics.json").read_text())
     assert metrics["topology"] == [1024, 8, 2] and metrics["device"] == "cpu" and metrics["epochs_run"] == 2
@@ -73,7 +73,7 @@ def test_train_ann_writes_checkpoint_metrics_and_opreport(prepared, capsys):
 def test_train_is_reproducible(prepared):
     def run():
         assert main(["train", "--model", "ann", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
-        return json.loads((prepared / "out" / "demo" / "morgan1024_r2_T4" / "ann_metrics.json").read_text())["history"]
+        return json.loads((prepared / "out" / "demo" / "morgan1024_r2_h8_T4_s42" / "ann_metrics.json").read_text())["history"]
 
     assert run() == run()
 
@@ -97,7 +97,7 @@ def test_profile_without_a_trained_model_says_what_to_run(prepared, capsys):
 
 def test_train_snn_writes_its_artifacts(prepared, capsys):
     assert main(["train", "--model", "snn", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
-    point = prepared / "out" / "demo" / "morgan1024_r2_T4"
+    point = prepared / "out" / "demo" / "morgan1024_r2_h8_T4_s42"
     assert (point / "snn.pt").is_file() and (point / "snn_curve.png").stat().st_size > 0
     metrics = json.loads((point / "snn_metrics.json").read_text())
     assert metrics["model"] == "snn" and metrics["snn"] == {"T": 4, "beta": 0.9, "threshold": 1.0, "reset": "subtract"}
@@ -113,7 +113,7 @@ def test_ann_and_snn_start_from_the_same_initial_weights(prepared):
 
     for kind in ("ann", "snn"):
         assert main(["train", "--model", kind, "--config", "cpu.yaml", "--results-dir", "out"]) == 0
-    point = prepared / "out" / "demo" / "morgan1024_r2_T4"
+    point = prepared / "out" / "demo" / "morgan1024_r2_h8_T4_s42"
     assert [h["epoch"] for h in json.loads((point / "snn_metrics.json").read_text())["history"]] == [1, 2]
     ann, snn = load_checkpoint(point / "ann.pt"), load_checkpoint(point / "snn.pt")
     assert [p.shape for p in ann.parameters()] == [p.shape for p in snn.parameters()]
@@ -145,7 +145,7 @@ def test_separate_commands_find_each_others_artifacts(prepared, capsys):
         assert all(path.is_file() for path in (layout.model_path(kind), layout.metrics_path(kind), layout.curve_path(kind), layout.opreport_path(kind)))
     assert layout.log_path.is_file() and (layout.data_dir / "dataset.npz").is_file()
     point = load_point_result(config, "out")
-    assert point.point_id == layout.point_id == "morgan1024_r2_T4"
+    assert point.point_id == layout.point_id == "morgan1024_r2_h8_T4_s42"
     assert point.metrics.n_mac == 1024 * 8 + 8 * 2 and point.T == 4
 
 
@@ -155,10 +155,10 @@ def test_compare_summarizes_and_writes_the_reports(prepared, capsys):
     capsys.readouterr()
     assert main(["compare", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
     out = capsys.readouterr().out
-    assert "point morgan1024_r2_T4 (T = 4)" in out and "ROC-AUC (test)" in out
+    assert "point morgan1024_r2_h8_T4_s42 (T = 4)" in out and "ROC-AUC (test)" in out
     assert "8208 MACs" in out and "40 state updates" in out and "critical r* = " in out
     assert "costs use the energies of the config (e_mac 1, e_ac 0.2, e_upd 0.3)" in out
-    report = prepared / "out" / "demo" / "morgan1024_r2_T4" / "report"
+    report = prepared / "out" / "demo" / "morgan1024_r2_h8_T4_s42" / "report"
     assert report.name in out
     assert sorted(p.name for p in report.iterdir()) == [
         "auc_vs_cost.png", "metrics.csv", "operations.png", "opreports.json", "rates.png",
@@ -178,8 +178,8 @@ def test_run_does_everything_and_prints_the_summary(workdir, capsys):
     (workdir / "cpu.yaml").write_text(yaml.safe_dump(cpu))
     assert main(["run", "--config", "cpu.yaml", "--results-dir", "out"]) == 0
     out = capsys.readouterr().out
-    assert "point morgan1024_r2_T4 (T = 4)" in out and "SNN" in out and "reports -> " in out
-    point = workdir / "out" / "demo" / "morgan1024_r2_T4"
+    assert "point morgan1024_r2_h8_T4_s42 (T = 4)" in out and "SNN" in out and "reports -> " in out
+    point = workdir / "out" / "demo" / "morgan1024_r2_h8_T4_s42"
     assert (point / "ann.pt").is_file() and (point / "snn.pt").is_file() and (point / "report" / "metrics.csv").is_file()
     log = (workdir / "out" / "demo" / "run.log").read_text()
     assert "state: idle -> configured" in log and "state: reporting -> idle" in log

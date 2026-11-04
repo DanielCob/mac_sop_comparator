@@ -10,7 +10,7 @@ from conftest import CONFIG
 from mac_sop_comparator.experiments.cli import main
 from mac_sop_comparator.profiling import OpReport
 
-POINT = "morgan1024_r2_T4"
+POINT = "morgan1024_r2_h8_T4_s42"
 
 
 def write_config(workdir, name="cpu.yaml", fingerprint=None):
@@ -43,7 +43,7 @@ def test_run_leaves_a_complete_and_consistent_set_of_artifacts(workdir, config_f
     cli("run", "--config", config_file, "--results-dir", "out")
     root = workdir / "out" / "demo"
     point = root / POINT
-    assert (root / "data" / "morgan1024_r2" / "dataset.npz").is_file() and (root / "run.log").is_file()
+    assert (root / "data" / "morgan1024_r2_s42" / "dataset.npz").is_file() and (root / "run.log").is_file()
     for kind in ("ann", "snn"):
         assert all((point / name).is_file() for name in (f"{kind}.pt", f"{kind}_metrics.json", f"{kind}_curve.png", f"opreport_{kind}.json"))
 
@@ -96,7 +96,7 @@ def test_a_second_run_reproduces_the_first(workdir, config_file):
 def test_maccs_point_uses_166_inputs(workdir):
     name = write_config(workdir, "maccs.yaml", {"type": "maccs", "n_bits": 1024, "radius": 2})
     cli("run", "--config", name, "--results-dir", "out")
-    (row,) = read_csv(workdir / "out" / "demo" / "maccs_T4" / "report" / "metrics.csv")
+    (row,) = read_csv(workdir / "out" / "demo" / "maccs_h8_T4_s42" / "report" / "metrics.csv")
     assert row["fingerprint"] == "maccs" and int(row["n_bits"]) == 166
     assert float(row["n_mac"]) == 166 * 8 + 8 * 2
 

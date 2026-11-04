@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 from mac_sop_comparator.comparison.point import PointResult  # noqa: E402
 
 CSV_COLUMNS = [
-    "point_id", "fingerprint", "n_bits", "T",
+    "point_id", "fingerprint", "n_bits", "hidden_layers", "T", "seed",
     "ann_auc", "snn_auc", "ann_balanced_accuracy", "snn_balanced_accuracy",
     "n_mac", "n_sop", "n_upd", "r", "r_critical",
     "cost_ann", "cost_snn", "cost_ratio", "ops_ratio", "snn_cheaper",
@@ -49,7 +49,8 @@ class ReportBuilder:
             m = p.metrics
             rows.append(
                 dict(
-                    point_id=p.point_id, fingerprint=p.fingerprint, n_bits=p.n_bits, T=p.T,
+                    point_id=p.point_id, fingerprint=p.fingerprint, n_bits=p.n_bits,
+                    hidden_layers="-".join(map(str, p.hidden_layers)), T=p.T, seed="" if p.seed is None else p.seed,
                     ann_auc=p.ann_auc, snn_auc=p.snn_auc,
                     ann_balanced_accuracy=p.ann_balanced_accuracy, snn_balanced_accuracy=p.snn_balanced_accuracy,
                     n_mac=m.n_mac, n_sop=m.n_sop, n_upd=m.n_upd, r=m.r, r_critical=m.r_critical,

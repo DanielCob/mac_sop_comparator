@@ -11,7 +11,7 @@ import torch
 from mac_sop_comparator.comparison import PointResult, ReportBuilder
 from mac_sop_comparator.config import Config
 from mac_sop_comparator.data import prepare_data, save_prepared
-from mac_sop_comparator.experiments.layout import ResultsLayout
+from mac_sop_comparator.experiments.layout import KINDS, ResultsLayout
 from mac_sop_comparator.experiments.stages import load_point_result, profile_models, train_model
 
 logger = logging.getLogger(__name__)
@@ -62,12 +62,18 @@ class ExperimentRunner:
     """Runs one point: prepare data, train the ANN and the SNN, evaluate, measure, compare and report.
 
     `run()` is the template; each stage is a method a subclass may replace (the tests inject fake stages).
-    The stages always recompute the point, with no hidden cache (D-39); the ANN reuse of D-26 belongs to the sweep.
+    The stages recompute the point, with no hidden cache (D-39). The sweep asks explicitly for less work (D-44):
+    `kinds` are the models to train (the ANN may have been copied from another T) and `reuse_data` keeps the
+    prepared data already on disk.
     """
 
-    def __init__(self, config: Config, results_dir: str | Path = "results"):
+    def __init__(
+        self, config: Config, results_dir: str | Path = "results", kinds: tuple[str, ...] = KINDS, reuse_data: bool = False
+    ):
         self.config = config
         self.results_dir = Path(results_dir)
+        self.kinds = kinds
+        self.reuse_data = reuse_data
         self.layout = ResultsLayout(results_dir, config)
         self.state = S.IDLE
         self.history: list[RunnerState] = [S.IDLE]
@@ -122,11 +128,14 @@ class ExperimentRunner:
     # Stages ---------------------------------------------------------------------------------------
 
     def _prepare_data(self) -> None:
+        if self.reuse_data and (self.layout.data_dir / "dataset.npz").is_file():
+            logger.info("reusing the prepared data in %s", self.layout.data_dir)
+            return
         save_prepared(prepare_data(self.config), self.layout.data_dir)
 
     def _train(self) -> None:
-        """Trains both models; `train_model` also scores them on validation and test and saves their curves."""
-        for kind in ("ann", "snn"):
+        """Trains the models in `kinds`; `train_model` also scores them on validation and test and saves their curves."""
+        for kind in self.kinds:
             train_model(self.config, self.results_dir, kind)
 
     def _evaluate(self) -> None:

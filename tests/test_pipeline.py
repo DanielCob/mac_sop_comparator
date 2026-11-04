@@ -78,7 +78,7 @@ def test_fingerprint_override_for_sweeps(config, loader):
 def test_save_and_load_roundtrip(config, loader, tmp_path):
     data = prepare_data(config, loader=loader)
     out = save_prepared(data, prepared_dir(tmp_path / "results", config))
-    assert out == tmp_path / "results" / "demo" / "data" / "morgan1024_r2"
+    assert out == tmp_path / "results" / "demo" / "data" / "morgan1024_r2_s42"
     assert (out / "dataset.npz").is_file() and json.loads((out / "summary.json").read_text()) == data.summary
     back = load_prepared(out)
     assert back.X.dtype == np.float32 and back.y.dtype == np.int64
@@ -94,7 +94,7 @@ def test_directories_differ_per_fingerprint(config, tmp_path):
         fingerprint_id(FingerprintConfig(type="morgan", n_bits=2048, radius=2)),
     }
     assert ids == {"maccs", "morgan1024_r2", "morgan2048_r2"}
-    assert prepared_dir(tmp_path, config, FingerprintConfig(type="maccs", n_bits=9, radius=9)).name == "maccs"
+    assert prepared_dir(tmp_path, config, FingerprintConfig(type="maccs", n_bits=9, radius=9)).name == "maccs_s42"
 
 
 def test_load_prepared_missing(tmp_path):
