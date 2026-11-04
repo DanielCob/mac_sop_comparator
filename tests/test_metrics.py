@@ -90,6 +90,7 @@ def test_to_dict_is_json_ready():
     assert set(d) == {
         "n_mac", "n_sop", "n_upd", "T", "r", "rate_per_layer", "cost_ann", "cost_snn",
         "cost_ratio", "ops_ratio", "r_critical", "snn_cheaper",
+        "bytes_ann", "bytes_snn", "ai_ann", "ai_snn", "energy_ann", "energy_snn", "energy_ratio",
     }  # fmt: skip
 
 
@@ -107,3 +108,15 @@ def test_invalid_inputs(ann, snn, T, sizes, message):
     default_ann, default_snn = reports()
     with pytest.raises(ValueError, match=message):
         EfficiencyMetrics.compute(ann or default_ann, snn or default_snn, params(), T=T, layer_sizes=sizes)
+
+
+def test_memory_terms_by_hand():
+    # layers [10, 5, 2]: ANN P = 100 MACs, A = 17, b_w = b_a = 4 -> 4*100 + 4*17 = 468 B (von Neumann)
+    # SNN spikes [8, 3, 1]: events S_0 + S_1 = 11 -> 4*11 + 4*2 = 52 B (neuromorphic)
+    m = EfficiencyMetrics.compute(*reports(), params(), T=4, layer_sizes=SIZES)
+    assert (m.bytes_ann, m.bytes_snn) == (468.0, 52.0)
+    assert m.ai_ann == pytest.approx(100 / 468)
+    assert m.ai_snn == pytest.approx((60 + 20) / 52)
+    assert m.energy_ann == pytest.approx(100 + 53 * 468)  # cost_ann + e_byte_von_neumann * bytes
+    assert m.energy_snn == pytest.approx(18 + 1.3 * 52)  # cost_snn + e_byte_neuromorphic * bytes
+    assert m.energy_ratio == pytest.approx(m.energy_snn / m.energy_ann)

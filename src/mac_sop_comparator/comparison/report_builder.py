@@ -16,6 +16,7 @@ CSV_COLUMNS = [
     "ann_auc", "snn_auc", "ann_balanced_accuracy", "snn_balanced_accuracy",
     "n_mac", "n_sop", "n_upd", "r", "r_critical",
     "cost_ann", "cost_snn", "cost_ratio", "ops_ratio", "snn_cheaper",
+    "bytes_ann", "bytes_snn", "ai_ann", "ai_snn", "energy_ann", "energy_snn", "energy_ratio",
     "e_mac", "e_ac", "e_upd",
 ]  # fmt: skip
 COST_LABEL = "relative cost (illustrative energies)"
@@ -54,6 +55,8 @@ class ReportBuilder:
                     n_mac=m.n_mac, n_sop=m.n_sop, n_upd=m.n_upd, r=m.r, r_critical=m.r_critical,
                     cost_ann=m.cost_ann, cost_snn=m.cost_snn, cost_ratio=m.cost_ratio, ops_ratio=m.ops_ratio,
                     snn_cheaper=m.snn_cheaper,
+                    bytes_ann=m.bytes_ann, bytes_snn=m.bytes_snn, ai_ann=m.ai_ann, ai_snn=m.ai_snn,
+                    energy_ann=m.energy_ann, energy_snn=m.energy_snn, energy_ratio=m.energy_ratio,
                     e_mac=p.params.e_mac, e_ac=p.params.e_ac, e_upd=p.params.e_upd,
                 )
             )  # fmt: skip

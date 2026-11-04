@@ -10,7 +10,7 @@ from mac_sop_comparator.config import Config
 from mac_sop_comparator.data import load_prepared
 from mac_sop_comparator.experiments.layout import KINDS, ResultsLayout
 from mac_sop_comparator.models import ModelFactory, SnnClassifier, load_checkpoint, save_checkpoint
-from mac_sop_comparator.profiling import MacProfiler, OpReport, SopProfiler
+from mac_sop_comparator.profiling import MacProfiler, OpReport, SopProfiler, TrafficModel
 from mac_sop_comparator.training import Evaluator, Trainer, plot_training_curve
 from mac_sop_comparator.utils import get_device, set_seed
 
@@ -91,6 +91,7 @@ def load_point_result(config: Config, results_dir: str | Path) -> PointResult:
     topology = metrics["ann"]["topology"]
     T = metrics["snn"]["snn"]["T"]
     fp = config.data.fingerprint
+    traffic = TrafficModel(config.architecture, topology)  # bytes depend on the parameters, so they are not stored (D-42)
     return PointResult(
         point_id=layout.point_id,
         fingerprint=fp.type,
@@ -100,8 +101,8 @@ def load_point_result(config: Config, results_dir: str | Path) -> PointResult:
         snn_auc=metrics["snn"]["test"]["roc_auc"],
         ann_balanced_accuracy=metrics["ann"]["test"]["balanced_accuracy"],
         snn_balanced_accuracy=metrics["snn"]["test"]["balanced_accuracy"],
-        ann_report=ann,
-        snn_report=snn,
+        ann_report=traffic.annotate(ann),
+        snn_report=traffic.annotate(snn),
         metrics=EfficiencyMetrics.compute(ann, snn, config.architecture, T, topology),
         params=config.architecture,
     )

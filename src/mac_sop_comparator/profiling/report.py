@@ -14,7 +14,7 @@ class OpReport:
 
     ANN: `macs`. SNN: `sops`, `state_updates` and `spikes_per_layer`. `biases` is the number of bias terms,
     reported apart because they count neither as MACs nor as SOPs (D-16). `bytes_accessed` maps a memory
-    scenario to the bytes moved; it stays None until the traffic model exists (phase 5).
+    scenario to the bytes moved (None where the network is not evaluated); `TrafficModel` fills it when comparing.
     """
 
     architecture: str
@@ -23,7 +23,7 @@ class OpReport:
     state_updates: float | None = None
     spikes_per_layer: list[float] | None = None
     biases: int | None = None
-    bytes_accessed: dict[str, float] | None = None
+    bytes_accessed: dict[str, float | None] | None = None
 
     def __post_init__(self) -> None:
         if self.architecture not in ARCHITECTURES:

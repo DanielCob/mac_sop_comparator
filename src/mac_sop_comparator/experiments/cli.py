@@ -98,6 +98,9 @@ def _summary(point: PointResult, report_dir: Path) -> str:
             f"operations         ANN {m.n_mac:.0f} MACs   SNN {m.n_sop:.0f} SOPs + {m.n_upd:.0f} state updates",
             f"activity           r = {m.r:.4f}   critical r* = {m.r_critical:.4f}",
             f"relative cost      ANN {m.cost_ann:.0f}   SNN {m.cost_snn:.0f}   (ratio {m.cost_ratio:.4f}, {verdict})",
+            f"memory traffic     ANN {m.bytes_ann / 1024:.1f} KB (von Neumann, AI {m.ai_ann:.2f})   "
+            f"SNN {m.bytes_snn / 1024:.2f} KB (neuromorphic, AI {m.ai_snn:.1f})",
+            f"total energy       ANN {m.energy_ann:.0f}   SNN {m.energy_snn:.0f}   (ratio {m.energy_ratio:.6f})",
             f"costs use the energies of the config (e_mac {p.e_mac:g}, e_ac {p.e_ac:g}, e_upd {p.e_upd:g})",
             f"sources            {sources}",
             f"reports -> {report_dir}",
