@@ -21,7 +21,7 @@ CONFIG = {
     },
     "model": {"hidden_layers": [8], "n_outputs": 2, "snn": {"T": 4, "beta": 0.9, "threshold": 1.0}},
     "training": {"optimizer": "adam", "lr": 1e-3, "batch_size": 16, "epochs": 1},
-    "architecture": {"weight_bits": 32, "e_mac": 1, "e_ac": 0.2, "e_upd": 0.3, "memory_scenarios": ["von_neumann"]},
+    "architecture": {"weight_bits": 32, "e_mac": 1, "e_ac": 0.2, "e_upd": 0.3, "e_byte_von_neumann": 53, "e_byte_neuromorphic": 1.3},
 }
 STAGES = ["_prepare_data", "_train", "_evaluate", "_measure", "_compare", "_report"]
 HAPPY_PATH = [S.IDLE, S.CONFIGURED, S.DATA_PREPARED, S.TRAINING, S.EVALUATING, S.MEASURING, S.COMPARING, S.REPORTING, S.IDLE]

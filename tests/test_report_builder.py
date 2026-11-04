@@ -7,7 +7,7 @@ from mac_sop_comparator.comparison import CSV_COLUMNS, EfficiencyMetrics, PointR
 from mac_sop_comparator.config import ArchitectureParams
 from mac_sop_comparator.profiling import OpReport
 
-PARAMS = ArchitectureParams(weight_bits=32, e_mac=1.0, e_ac=0.2, e_upd=0.3, memory_scenarios=["von_neumann"])
+PARAMS = ArchitectureParams(weight_bits=32, e_mac=1.0, e_ac=0.2, e_upd=0.3, e_byte_von_neumann=53.0, e_byte_neuromorphic=1.3)
 SIZES = [10, 5, 2]
 PNG = b"\x89PNG\r\n\x1a\n"
 

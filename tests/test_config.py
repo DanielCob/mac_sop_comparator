@@ -21,7 +21,8 @@ VALID = {
         "e_mac": 1.0,
         "e_ac": 0.2,
         "e_upd": 0.3,
-        "memory_scenarios": ["von_neumann", "neuromorphic"],
+        "e_byte_von_neumann": 53.0,
+        "e_byte_neuromorphic": 1.3,
     },
 }
 
@@ -78,8 +79,11 @@ def test_config_is_immutable():
         ("experiment.n_threads", -1, "experiment.n_threads"),
         ("training.lr", 0, "training.lr"),
         ("training.optimizer", "sgd", "training.optimizer"),
-        ("architecture.memory_scenarios", [], "architecture.memory_scenarios"),
-        ("architecture.memory_scenarios", ["gpu"], "architecture.memory_scenarios.0"),
+        ("architecture.e_byte_von_neumann", -1, "architecture.e_byte_von_neumann"),
+        ("architecture.e_byte_neuromorphic", None, "architecture.e_byte_neuromorphic"),
+        ("architecture.inference_batch", 0, "architecture.inference_batch"),
+        ("architecture.b_e", 0, "architecture.b_e"),
+        ("architecture.sources", {"e_macs": "x"}, "e_macs"),  # the message names the unknown parameter
         ("model.snn.treshold", 1.0, "model.snn.treshold"),  # typo in a key
         ("sweep", {"T": [4, -8], "fingerprint": ["maccs"]}, "sweep.T.1"),
         ("sweep", {"T": [4], "fingerprint": ["morgan"], "n_bits": [0]}, "sweep.n_bits.0"),

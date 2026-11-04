@@ -6,6 +6,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 FingerprintType = Literal["maccs", "morgan"]
 PositiveInt = Annotated[int, Field(gt=0)]
+SOURCED_PARAMS = (
+    "weight_bits", "e_mac", "e_ac", "e_upd", "e_byte_von_neumann", "e_byte_neuromorphic",
+    "b_a", "b_s", "b_e", "b_o", "inference_batch",
+)
 
 
 class _Section(BaseModel):
@@ -78,11 +82,37 @@ class TrainingConfig(_Section):
 
 
 class ArchitectureParams(_Section):
+    """Energies (relative to one MAC) and memory parameters. Nothing is fixed by the tool (D-21, D-23, D-37):
+    `sources` records where each value comes from, and the reports carry it."""
+
     weight_bits: int = Field(gt=0)
     e_mac: float = Field(gt=0)
     e_ac: float = Field(ge=0)
     e_upd: float = Field(ge=0)
-    memory_scenarios: list[Literal["von_neumann", "neuromorphic"]] = Field(min_length=1)
+    e_byte_von_neumann: float = Field(ge=0)  # energy per byte moved to/from main memory (ANN scenario)
+    e_byte_neuromorphic: float = Field(ge=0)  # energy per byte of event traffic on chip (SNN scenario)
+    b_a: PositiveInt = 4  # bytes per activation
+    b_s: PositiveInt = 4  # bytes per neuron state (membrane potential)
+    b_e: PositiveInt = 4  # bytes per spike event
+    b_o: PositiveInt = 4  # bytes per output value
+    inference_batch: PositiveInt = 1  # B_lote: samples sharing one read of the weights
+    sources: dict[str, str] = Field(default_factory=dict)
+
+    @property
+    def b_w(self) -> float:
+        """Bytes per weight, derived from `weight_bits`."""
+        return self.weight_bits / 8
+
+    @model_validator(mode="after")
+    def _sources_name_parameters(self) -> "ArchitectureParams":
+        unknown = sorted(set(self.sources) - set(SOURCED_PARAMS))
+        if unknown:
+            raise ValueError(f"sources has unknown parameters {unknown}; valid: {list(SOURCED_PARAMS)}")
+        return self
+
+    def missing_sources(self) -> list[str]:
+        """Parameters with no entry in `sources` (the supervisor asks every datum to cite where it comes from)."""
+        return [name for name in SOURCED_PARAMS if not self.sources.get(name)]
 
 
 class SweepConfig(_Section):

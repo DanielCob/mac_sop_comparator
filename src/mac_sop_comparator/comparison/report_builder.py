@@ -72,7 +72,7 @@ class ReportBuilder:
 
     @staticmethod
     def write_json(results: list[PointResult], path: str | Path) -> Path:
-        """OpReports of both models plus the unified metrics (with the per-layer rates) of every point."""
+        """OpReports of both models, the unified metrics (with the per-layer rates) and the parameters used, per point."""
         _require(results)
         data = [
             {
@@ -80,6 +80,7 @@ class ReportBuilder:
                 "ann": p.ann_report.to_dict(),
                 "snn": p.snn_report.to_dict(),
                 "metrics": p.metrics.to_dict(),
+                "params": p.params.model_dump(),  # energies, bytes and the source of each (D-21, D-23, D-37)
             }
             for p in results
         ]

@@ -89,6 +89,8 @@ def _profile(config: Config, results_dir: Path) -> int:
 def _summary(point: PointResult, report_dir: Path) -> str:
     m, p = point.metrics, point.params
     verdict = "SNN cheaper" if m.snn_cheaper else "ANN cheaper"
+    missing = p.missing_sources()
+    sources = "every parameter cites its source" if not missing else f"WARNING: no source for {', '.join(missing)}"
     return "\n".join(
         [
             f"point {point.point_id} (T = {point.T})",
@@ -97,6 +99,7 @@ def _summary(point: PointResult, report_dir: Path) -> str:
             f"activity           r = {m.r:.4f}   critical r* = {m.r_critical:.4f}",
             f"relative cost      ANN {m.cost_ann:.0f}   SNN {m.cost_snn:.0f}   (ratio {m.cost_ratio:.4f}, {verdict})",
             f"costs use the energies of the config (e_mac {p.e_mac:g}, e_ac {p.e_ac:g}, e_upd {p.e_upd:g})",
+            f"sources            {sources}",
             f"reports -> {report_dir}",
         ]
     )

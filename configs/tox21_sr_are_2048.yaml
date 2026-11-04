@@ -15,11 +15,29 @@ model:
 
 training: {optimizer: adam, lr: 1.0e-4, batch_size: 16, epochs: 100, patience: 15, class_weights: true}
 
-architecture:                     # valores ilustrativos; calibrar con el supervisor (D-21, D-23, D-24)
+architecture:                     # energías relativas a un MAC (e_mac = 1); nada se fija en la herramienta (D-21, D-23, D-37)
   weight_bits: 32
   e_mac: 1.0
   e_ac: 0.2
   e_upd: 0.3
-  memory_scenarios: [von_neumann, neuromorphic]
+  e_byte_von_neumann: 53.0        # DRAM, por byte movido
+  e_byte_neuromorphic: 1.3        # evento local en el chip, por byte
+  b_a: 4
+  b_s: 4
+  b_e: 4
+  b_o: 4
+  inference_batch: 1
+  sources:
+    weight_bits: "FP32 (D-23, aprobado en la reunión del 30/10/2026)"
+    e_mac: "Horowitz, ISSCC 2014, Fig. 1.1.9 (45 nm, 0.9 V): FAdd32 0.9 pJ + FMult32 3.7 pJ = 4.6 pJ; es la unidad"
+    e_ac: "Horowitz 2014: FAdd32 0.9 pJ / 4.6 pJ = 0.2"
+    e_upd: "Supuesto (D-21): 1 multiplicación por beta + 1 suma + 1 comparación, 0.3-1.0 relativo; se barre. Loihi (Davies 2018, Tabla 2): 52-81 pJ por actualización de neurona, 2.2-3.4 veces un SOP"
+    e_byte_von_neumann: "Horowitz 2014, Fig. 1.1.9: DRAM 1.3-2.6 nJ por acceso de 64 bits; punto medio 0.975 nJ por 32 bits = 0.244 nJ/byte; / 4.6 pJ = 53 (rango 35-71)"
+    e_byte_neuromorphic: "Davies et al. 2018 (Loihi, 14 nm, Tabla 2): 23.6 pJ por operación sináptica con evento de 4 bytes = 5.9 pJ/byte; / 4.6 pJ de Horowitz = 1.3. Mezcla dos tecnologías (14 nm y 45 nm): aproximación"
+    b_a: "4 bytes (FP32), D-23"
+    b_s: "4 bytes (potencial de membrana FP32), D-23"
+    b_e: "4 bytes (índice de evento de 32 bits), D-23"
+    b_o: "4 bytes, D-23"
+    inference_batch: "1: peor caso von Neumann (D-23)"
 
 sweep: {T: [4, 8, 10, 16], fingerprint: [maccs, morgan], max_points: 50}   # sin barrer n_bits: esta variante fija 2048

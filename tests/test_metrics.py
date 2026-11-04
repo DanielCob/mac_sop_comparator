@@ -8,7 +8,7 @@ from mac_sop_comparator.profiling import OpReport
 
 
 def params(e_mac=1.0, e_ac=0.2, e_upd=0.3):
-    return ArchitectureParams(weight_bits=32, e_mac=e_mac, e_ac=e_ac, e_upd=e_upd, memory_scenarios=["von_neumann"])
+    return ArchitectureParams(weight_bits=32, e_mac=e_mac, e_ac=e_ac, e_upd=e_upd, e_byte_von_neumann=53.0, e_byte_neuromorphic=1.3)
 
 
 def reports(macs=100, sops=60.0, upd=20.0, spikes=(8.0, 3.0, 1.0)):
