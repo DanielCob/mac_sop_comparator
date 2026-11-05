@@ -109,6 +109,9 @@ def test_the_second_t_copies_the_ann_and_trains_only_the_snn(workdir):
         rows = list(csv.DictReader(f))
     assert [r["point_id"] for r in rows] == [first, second] and rows[0]["seed"] == "42" and rows[0]["hidden_layers"] == "8"
     assert not (root / "sweep" / "failed.csv").exists()
+    assert {f.name for f in (root / "sweep").iterdir()} == {
+        "points.csv", "pareto.csv", "pareto_cost.png", "pareto_energy.png", "sensitivity_e_upd.png", "sensitivity_e_byte.png",
+    }
 
 
 def test_a_second_run_skips_the_points_with_a_report_and_force_reruns_them(workdir):

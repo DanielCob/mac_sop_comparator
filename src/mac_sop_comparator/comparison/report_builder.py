@@ -9,6 +9,8 @@ import matplotlib
 matplotlib.use("Agg")  # no display needed
 import matplotlib.pyplot as plt  # noqa: E402
 
+from mac_sop_comparator.comparison import sensitivity  # noqa: E402
+from mac_sop_comparator.comparison.pareto import METRICS, ParetoAnalyzer  # noqa: E402
 from mac_sop_comparator.comparison.point import PointResult  # noqa: E402
 
 CSV_COLUMNS = [
@@ -153,6 +155,69 @@ class ReportBuilder:
         ax.set_ylabel("rate")
         ax.grid(alpha=0.3)
         return _save(fig, path)
+
+    @staticmethod
+    def plot_pareto(results: list[PointResult], path: str | Path, metric: str = "cost") -> Path:
+        """Every model of the sweep in (cost, test ROC-AUC) with the non-dominated ones joined by a step line (D-44)."""
+        candidates = ParetoAnalyzer.candidates(results)
+        front = ParetoAnalyzer.frontier(candidates, metric)
+        label = {"cost": COST_LABEL + ", compute only", "energy": "relative energy, compute + memory traffic"}[metric]
+        fig, ax = plt.subplots(figsize=(6.4, 4.4))
+        for arch, color, marker, name in (("ann", ANN_COLOR, "o", "ANN"), ("snn", SNN_COLOR, "^", "SNN")):
+            pts = [c for c in candidates if c.architecture == arch]
+            ax.scatter([c.value(metric) for c in pts], [c.auc for c in pts], color=color, marker=marker, alpha=0.7, label=name)
+        ax.step([c.value(metric) for c in front], [c.auc for c in front], where="post", color="black", linewidth=1, label="Pareto frontier")
+        ax.scatter([c.value(metric) for c in front], [c.auc for c in front], facecolors="none", edgecolors="black", s=90)
+        ax.set(xscale="log", xlabel=label, ylabel="test ROC-AUC", title=f"Pareto frontier ({len(front)} of {len(candidates)} models)")
+        ax.grid(alpha=0.3)
+        ax.legend()
+        return _save(fig, path)
+
+    @staticmethod
+    def plot_update_sensitivity(results: list[PointResult], path: str | Path) -> Path:
+        """Compute-only cost ratio against e_upd / e_ac: below 1 the SNN is cheaper."""
+        _require(results)
+        fig, ax = plt.subplots(figsize=(6, 4.2))
+        for p in results:
+            ax.plot(sensitivity.UPD_RATIOS, sensitivity.cost_ratio_vs_update_energy(p), color=SNN_COLOR, alpha=0.5)
+        ax.axhline(1.0, color="gray", linestyle="--", label="break-even (SNN = ANN)")
+        ax.set(xlabel="e_upd / e_ac", ylabel="cost ratio C_SNN / C_ANN", title="Sensitivity to the state-update energy")
+        ax.grid(alpha=0.3)
+        ax.legend()
+        return _save(fig, path)
+
+    @staticmethod
+    def plot_byte_sensitivity(results: list[PointResult], path: str | Path) -> Path:
+        """Total-energy ratio against the energy per byte of each scenario; the dotted line is the config value."""
+        _require(results)
+        fig, axes = plt.subplots(1, 2, figsize=(10, 4.2), sharey=True)
+        titles = {"von_neumann": "ANN e_byte (von Neumann)", "neuromorphic": "SNN e_byte (neuromorphic)"}
+        for ax, kind in zip(axes, sensitivity.BYTE_KINDS):
+            for p in results:
+                ax.plot(sensitivity.BYTE_ENERGIES, sensitivity.energy_ratio_vs_byte_energy(p, kind), color=SNN_COLOR, alpha=0.5)
+            ax.axhline(1.0, color="gray", linestyle="--", label="break-even")
+            value = getattr(results[0].params, f"e_byte_{kind}")
+            ax.axvline(value, color="black", linestyle=":", label=f"config ({value:g})")
+            ax.set(xscale="log", yscale="log", xlabel=f"{titles[kind]}, in MAC energies", title=titles[kind])
+            ax.grid(alpha=0.3)
+            ax.legend()
+        axes[0].set_ylabel("energy ratio E_SNN / E_ANN")
+        return _save(fig, path)
+
+    @classmethod
+    def build_sweep(cls, results: list[PointResult], directory: str | Path) -> dict[str, Path]:
+        """Consolidated files of a sweep: all points, the Pareto candidates and figures, the sensitivity figures."""
+        _require(results)
+        directory = Path(directory)
+        paths = {
+            "points": cls.write_csv(results, directory / "points.csv"),
+            "pareto": ParetoAnalyzer.write_csv(results, directory / "pareto.csv"),
+            "update_sensitivity": cls.plot_update_sensitivity(results, directory / "sensitivity_e_upd.png"),
+            "byte_sensitivity": cls.plot_byte_sensitivity(results, directory / "sensitivity_e_byte.png"),
+        }
+        for metric in METRICS:
+            paths[f"pareto_{metric}"] = cls.plot_pareto(results, directory / f"pareto_{metric}.png", metric)
+        return paths
 
     @classmethod
     def build_all(cls, results: list[PointResult], directory: str | Path) -> dict[str, Path]:

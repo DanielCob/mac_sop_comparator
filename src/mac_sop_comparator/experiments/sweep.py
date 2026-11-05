@@ -135,7 +135,7 @@ class SweepManager:
         sweep_dir = ResultsLayout(self.results_dir, self.config).sweep_dir
         paths = {}
         if points:
-            paths["points"] = ReportBuilder.write_csv(points, sweep_dir / "points.csv")
+            paths.update(ReportBuilder.build_sweep(points, sweep_dir))
         failed_path = sweep_dir / "failed.csv"
         if failed:
             failed_path.parent.mkdir(parents=True, exist_ok=True)
