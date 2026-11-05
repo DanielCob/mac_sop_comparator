@@ -5,12 +5,13 @@ import logging
 import sys
 from pathlib import Path
 
-from mac_sop_comparator.comparison import PointResult, ReportBuilder
+from mac_sop_comparator.comparison import ParetoAnalyzer, PointResult, ReportBuilder
 from mac_sop_comparator.config import Config, ConfigError, load_config
 from mac_sop_comparator.data import DataError, prepare_data, save_prepared
 from mac_sop_comparator.experiments.layout import ResultsLayout
 from mac_sop_comparator.experiments.runner import ExperimentError, ExperimentRunner
 from mac_sop_comparator.experiments.stages import load_point_result, profile_models, train_model
+from mac_sop_comparator.experiments.sweep import SweepManager
 from mac_sop_comparator.utils import set_num_threads, set_seed, setup_logging
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,8 @@ def build_parser() -> argparse.ArgumentParser:
         cmd.add_argument("--results-dir", default="results", help="where artifacts are written (default: results)")
         if name == "train":
             cmd.add_argument("--model", required=True, choices=["ann", "snn"])
+        if name == "sweep":
+            cmd.add_argument("--force", action="store_true", help="run again the points that already have a report")
     return parser
 
 
@@ -122,6 +125,32 @@ def _run(config: Config, results_dir: Path) -> int:
     return EXIT_OK
 
 
+def _sweep(config: Config, results_dir: Path, force: bool) -> int:
+    try:
+        manager = SweepManager(config, results_dir)
+        n_points = len(manager.configs())
+    except ValueError as exc:  # no sweep section, or more points than max_points
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    logger.info("sweep of %d points", n_points)
+    result = manager.run(force=force)
+    ran = len(result.points) - len(result.skipped)
+    lines = [
+        f"sweep '{config.experiment.name}': {n_points} points ({ran} run, {len(result.skipped)} skipped, "
+        f"{len(result.failed)} failed); ANN copied from another T in {len(result.reused_ann)}"
+    ]
+    if result.points:
+        candidates = ParetoAnalyzer.candidates(result.points)
+        cost, energy = (len(ParetoAnalyzer.frontier(candidates, m)) for m in ("cost", "energy"))
+        lines.append(f"Pareto frontier: {cost} of {len(candidates)} models by compute cost, {energy} by total energy")
+    if "statistics" in result.paths:
+        lines.append("seed statistics -> statistics.csv, statistics.png")
+    lines += [f"failed {point_id}: {error}" for point_id, error in result.failed.items()]
+    lines.append(f"results -> {ResultsLayout(results_dir, config).sweep_dir}")
+    print("\n".join(lines))
+    return EXIT_ERROR if result.failed else EXIT_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -142,9 +171,10 @@ def main(argv: list[str] | None = None) -> int:
             return _compare(config, results_dir)
         if args.command == "run":
             return _run(config, results_dir)
+        if args.command == "sweep":
+            return _sweep(config, results_dir, args.force)
     except (DataError, FileNotFoundError, ExperimentError) as exc:
         logger.error("%s", exc)
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ERROR
-    print(f"error: '{args.command}' is not implemented yet", file=sys.stderr)
-    return EXIT_ERROR
+    raise AssertionError(f"unhandled command '{args.command}'")  # argparse only lets the known ones through

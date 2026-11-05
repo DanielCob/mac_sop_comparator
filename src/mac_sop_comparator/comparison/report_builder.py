@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 from mac_sop_comparator.comparison import sensitivity  # noqa: E402
 from mac_sop_comparator.comparison.pareto import METRICS, ParetoAnalyzer  # noqa: E402
 from mac_sop_comparator.comparison.point import PointResult  # noqa: E402
+from mac_sop_comparator.comparison.statistics import SeedStatistics  # noqa: E402
 
 CSV_COLUMNS = [
     "point_id", "fingerprint", "n_bits", "hidden_layers", "T", "seed",
@@ -204,9 +205,27 @@ class ReportBuilder:
         axes[0].set_ylabel("energy ratio E_SNN / E_ANN")
         return _save(fig, path)
 
+    @staticmethod
+    def plot_statistics(results: list[PointResult], path: str | Path) -> Path:
+        """Test ROC-AUC of both models, mean and standard deviation over the seeds, for each repeated configuration."""
+        rows = [r for r in SeedStatistics.aggregate(results) if r["n_seeds"] > 1]
+        if not rows:
+            raise ValueError("no configuration has more than one seed")
+        xs = list(range(len(rows)))
+        fig, ax = plt.subplots(figsize=(max(5.0, 1.2 * len(rows) + 2), 4.2))
+        for offset, key, color, name in ((-0.1, "ann_auc", ANN_COLOR, "ANN"), (0.1, "snn_auc", SNN_COLOR, "SNN")):
+            ax.errorbar([x + offset for x in xs], [r[f"{key}_mean"] for r in rows], [r[f"{key}_std"] for r in rows],
+                        fmt="o", color=color, capsize=4, label=name)  # fmt: skip
+        ax.set(xticks=xs, xticklabels=[f"{r['config_id']}\n(n={r['n_seeds']})" for r in rows], ylabel="test ROC-AUC")
+        ax.tick_params(axis="x", labelsize=7, rotation=20 if len(rows) > 1 else 0)
+        ax.set_title("Accuracy over seeds (mean ± std)")
+        ax.grid(axis="y", alpha=0.3)
+        ax.legend()
+        return _save(fig, path)
+
     @classmethod
     def build_sweep(cls, results: list[PointResult], directory: str | Path) -> dict[str, Path]:
-        """Consolidated files of a sweep: all points, the Pareto candidates and figures, the sensitivity figures."""
+        """Consolidated files of a sweep: points, Pareto, sensitivity and, with repeated seeds, the seed statistics."""
         _require(results)
         directory = Path(directory)
         paths = {
@@ -215,6 +234,9 @@ class ReportBuilder:
             "update_sensitivity": cls.plot_update_sensitivity(results, directory / "sensitivity_e_upd.png"),
             "byte_sensitivity": cls.plot_byte_sensitivity(results, directory / "sensitivity_e_byte.png"),
         }
+        if SeedStatistics.has_repeats(SeedStatistics.aggregate(results)):
+            paths["statistics"] = SeedStatistics.write_csv(results, directory / "statistics.csv")
+            paths["statistics_plot"] = cls.plot_statistics(results, directory / "statistics.png")
         for metric in METRICS:
             paths[f"pareto_{metric}"] = cls.plot_pareto(results, directory / f"pareto_{metric}.png", metric)
         return paths

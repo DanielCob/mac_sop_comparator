@@ -27,6 +27,12 @@ class PointResult:
     seed: int | None = None
 
     @property
+    def config_id(self) -> str:
+        """The point without its seed, e.g. `morgan1024_h128-64_T10`: what the seed statistics group by."""
+        hidden = f"_h{'-'.join(map(str, self.hidden_layers))}" if self.hidden_layers else ""
+        return f"{self.fingerprint}{self.n_bits}{hidden}_T{self.T}"
+
+    @property
     def group(self) -> str:
         """Family of points that differ only in T, e.g. `morgan1024`, plus topology and seed when known."""
         hidden = f"_h{'-'.join(map(str, self.hidden_layers))}" if self.hidden_layers else ""

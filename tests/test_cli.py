@@ -39,9 +39,9 @@ def test_dataset_not_available_is_a_clean_error(workdir, capsys):
     assert "save it manually" in capsys.readouterr().err
 
 
-def test_sweep_is_not_implemented_yet(workdir, capsys):
-    assert main(["sweep", "--config", "c.yaml"]) == 1
-    assert "not implemented" in capsys.readouterr().err
+def test_sweep_without_a_sweep_section_is_a_config_error(workdir, capsys):
+    assert main(["sweep", "--config", "c.yaml"]) == 2
+    assert "no 'sweep' section" in capsys.readouterr().err
 
 
 # --- train / profile (ANN) ---------------------------------------------------------------------
@@ -198,3 +198,68 @@ def test_run_with_an_invalid_config_exits_with_2(workdir, capsys):
     bad = {**CONFIG, "model": {**CONFIG["model"], "snn": {"T": 0, "beta": 0.9, "threshold": 1.0}}}
     (workdir / "bad.yaml").write_text(yaml.safe_dump(bad))
     assert main(["run", "--config", "bad.yaml"]) == 2
+
+
+# sweep -----------------------------------------------------------------------------------------------
+
+
+def sweep_config(workdir, sweep, name="sweep.yaml"):
+    import yaml
+    from conftest import CONFIG
+
+    raw = {**CONFIG, "experiment": {**CONFIG["experiment"], "device": "cpu"}, "training": {**CONFIG["training"], "epochs": 2}, "sweep": sweep}
+    (workdir / name).write_text(yaml.safe_dump(raw))
+    return name
+
+
+def test_sweep_runs_the_points_and_summarizes(workdir, capsys):
+    name = sweep_config(workdir, {"T": [2, 4], "fingerprint": ["morgan"]})
+    assert main(["sweep", "--config", name, "--results-dir", "out"]) == 0
+    out = capsys.readouterr().out
+    assert "sweep 'demo': 2 points (2 run, 0 skipped, 0 failed); ANN copied from another T in 1" in out
+    assert "Pareto frontier:" in out and "models by compute cost" in out and "by total energy" in out
+    assert "statistics" not in out  # one seed
+    sweep_dir = workdir / "out" / "demo" / "sweep"
+    assert (sweep_dir / "points.csv").is_file() and (sweep_dir / "pareto.csv").is_file()
+    assert f"results -> {sweep_dir.relative_to(workdir)}" in out
+
+
+def test_sweep_rerun_skips_and_force_runs_again(workdir, capsys):
+    name = sweep_config(workdir, {"T": [2, 4], "fingerprint": ["morgan"]})
+    main(["sweep", "--config", name, "--results-dir", "out"])
+    capsys.readouterr()
+    assert main(["sweep", "--config", name, "--results-dir", "out"]) == 0
+    assert "(0 run, 2 skipped, 0 failed)" in capsys.readouterr().out
+    assert main(["sweep", "--config", name, "--results-dir", "out", "--force"]) == 0
+    assert "(2 run, 0 skipped, 0 failed)" in capsys.readouterr().out
+
+
+def test_sweep_with_seeds_reports_the_statistics(workdir, capsys):
+    name = sweep_config(workdir, {"T": [2], "fingerprint": ["morgan"], "seeds": [1, 2]})
+    assert main(["sweep", "--config", name, "--results-dir", "out"]) == 0
+    assert "seed statistics -> statistics.csv, statistics.png" in capsys.readouterr().out
+    assert (workdir / "out" / "demo" / "sweep" / "statistics.csv").is_file()
+
+
+def test_sweep_with_too_many_points_is_a_config_error(workdir, capsys):
+    name = sweep_config(workdir, {"T": [2, 4, 8], "fingerprint": ["morgan"], "max_points": 2})
+    assert main(["sweep", "--config", name, "--results-dir", "out"]) == 2
+    assert "3 points, more than max_points = 2" in capsys.readouterr().err
+    assert not (workdir / "out" / "demo" / "morgan1024_r2_h8_T2_s42").exists()  # nothing was trained
+
+
+def test_sweep_with_a_failed_point_exits_with_1(workdir, capsys, monkeypatch):
+    from mac_sop_comparator.experiments import sweep as sweep_module
+    from mac_sop_comparator.experiments.runner import ExperimentRunner
+
+    class Flaky(ExperimentRunner):
+        def _train(self):
+            if self.config.model.snn.T == 2:
+                raise RuntimeError("boom")
+            super()._train()
+
+    monkeypatch.setattr(sweep_module, "ExperimentRunner", Flaky)
+    name = sweep_config(workdir, {"T": [2, 4], "fingerprint": ["morgan"]})
+    assert main(["sweep", "--config", name, "--results-dir", "out"]) == 1
+    out = capsys.readouterr().out
+    assert "(1 run, 0 skipped, 1 failed)" in out and "failed morgan1024_r2_h8_T2_s42: training failed: boom" in out
