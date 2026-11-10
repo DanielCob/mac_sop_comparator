@@ -82,4 +82,4 @@ def test_unknown_kinds_and_bad_input_size_fail():
 def test_builds_from_the_shipped_config_with_the_prepared_feature_count():
     cfg = load_config(Path(__file__).parent.parent / "configs" / "tox21_sr_are.yaml")
     model = ModelFactory.build(cfg.model, cfg.data.fingerprint.n_bits, "ann")
-    assert sum(l.weight.numel() for l in model.layers()) == 139_392  # the MAC count of D-16
+    assert sum(l.weight.numel() for l in model.layers()) == 1024 * 1000 + 1000 * 2  # [1024, 1000, 2]: the MAC count of D-16

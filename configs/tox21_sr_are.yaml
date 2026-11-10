@@ -8,12 +8,12 @@ data:
   split: {train: 0.8, val: 0.1, test: 0.1, method: stratified}
 
 model:
-  hidden_layers: [128, 64]        # la entrada se deriva de la firma
+  hidden_layers: [1000]           # una capa oculta de 1000 neuronas, la de Nascimben y Rimondini 2023 (D-47); la entrada se deriva de la firma
   n_outputs: 2
   ann: {activation: relu}
   snn: {T: 10, beta: 0.95, threshold: 1.0, surrogate: arctan, reset: subtract}
 
-training: {optimizer: adam, lr: 1.0e-4, batch_size: 16, epochs: 100, patience: 15, class_weights: true}
+training: {optimizer: adam, lr: 1.0e-4, batch_size: 64, epochs: 100, patience: 15, class_weights: true}
 
 architecture:                     # energías relativas a un MAC (e_mac = 1); nada se fija en la herramienta (D-21, D-23, D-37)
   weight_bits: 32
@@ -40,4 +40,4 @@ architecture:                     # energías relativas a un MAC (e_mac = 1); na
     b_o: "4 bytes, D-23"
     inference_batch: "1: peor caso von Neumann (D-23)"
 
-sweep: {T: [4, 8, 10, 16], fingerprint: [maccs, morgan], n_bits: [1024, 2048], hidden_layers: [[16], [128, 64], [256, 128]], max_points: 50}   # n_bits solo aplica a morgan: 4 T x 3 firmas x 3 topologías = 36 puntos, 1 semilla (D-36, D-44)
+sweep: {T: [4, 8, 10, 16], fingerprint: [maccs, morgan], n_bits: [1024, 2048], hidden_layers: [[16], [128, 64], [256, 128], [1000]], max_points: 50}   # n_bits solo aplica a morgan: 4 T x 3 firmas x 4 topologías = 48 puntos, 1 semilla (D-36, D-44, D-47)

@@ -38,6 +38,22 @@ def ann_cache_key(config: Config) -> str:
     return hashlib.sha1(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
+def point_key(config: Config) -> str:
+    """Hash of everything a trained point depends on (data, model with T, training, seed, device), not the energies.
+
+    The SNN saves it (the ANN has its own `cache_key`, which does not depend on T) so that the sweep never reuses
+    results trained under another configuration (D-48).
+    """
+    payload = {
+        "data": config.data.model_dump(),
+        "model": config.model.model_dump(),
+        "training": config.training.model_dump(),
+        "seed": config.experiment.seed,
+        "device": config.experiment.device,
+    }
+    return hashlib.sha1(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
+
+
 def train_model(config: Config, results_dir: str | Path, kind: str) -> dict:
     """Train and evaluate one model on the prepared data; save checkpoint, metrics, curve and OpReport."""
     layout = ResultsLayout(results_dir, config)
@@ -70,6 +86,7 @@ def train_model(config: Config, results_dir: str | Path, kind: str) -> dict:
     if kind == "ann":
         metrics["cache_key"] = ann_cache_key(config)
     if kind == "snn":
+        metrics["config_key"] = point_key(config)
         metrics["snn"] = {"T": model.T, "beta": model.beta, "threshold": model.threshold, "reset": model.reset}
     save_checkpoint(model, layout.model_path(kind))
     plot_training_curve(result.history, result.best_epoch, layout.curve_path(kind), f"{config.experiment.name} - {kind.upper()}")

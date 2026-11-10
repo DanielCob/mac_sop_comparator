@@ -144,3 +144,22 @@ def test_a_clean_rerun_removes_a_stale_failed_csv(workdir):
     (sweep_dir / "failed.csv").write_text("point_id,error\nold,boom\n")
     SweepManager(make({"T": [2], "fingerprint": ["morgan"]}), "out").run()
     assert not (sweep_dir / "failed.csv").exists()
+
+
+def test_results_trained_under_another_configuration_are_not_reused(workdir):
+    SweepManager(make({"T": [2], "fingerprint": ["morgan"]}), "out").run()
+    other = make({"T": [2], "fingerprint": ["morgan"]}, training={**CONFIG["training"], "epochs": 3, "batch_size": 32})
+    result = SweepManager(other, "out").run()
+    assert result.skipped == [] and len(result.points) == 1  # same point id, different training: trained again
+    again = SweepManager(other, "out").run()
+    assert len(again.skipped) == 1  # now the saved key matches
+
+
+def test_results_without_a_config_key_count_as_stale(workdir):
+    manager = SweepManager(make({"T": [2], "fingerprint": ["morgan"]}), "out")
+    manager.run()
+    layout = ResultsLayout("out", manager.configs()[0])
+    data = json.loads(layout.metrics_path("snn").read_text())  # what a result saved before the key existed looks like
+    data.pop("config_key")
+    layout.metrics_path("snn").write_text(json.dumps(data))
+    assert manager.run().skipped == []

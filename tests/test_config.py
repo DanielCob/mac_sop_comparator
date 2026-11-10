@@ -126,6 +126,8 @@ def test_shipped_experiment_config_is_valid():
 
     cfg = load_config(Path(__file__).parent.parent / "configs" / "tox21_sr_are.yaml")
     assert cfg.data.task == "SR-ARE"
-    assert cfg.model.hidden_layers == [128, 64]
+    assert cfg.model.hidden_layers == [1000]  # Nascimben y Rimondini 2023 (D-47)
+    assert cfg.training.batch_size == 64 and cfg.data.task == "SR-ARE"
     assert cfg.sweep is not None and cfg.sweep.T == [4, 8, 10, 16]
     assert cfg.sweep.n_bits == [1024, 2048]
+    assert cfg.sweep.hidden_layers == [[16], [128, 64], [256, 128], [1000]]

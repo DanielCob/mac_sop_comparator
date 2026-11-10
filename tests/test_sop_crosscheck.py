@@ -131,7 +131,7 @@ def test_the_firing_rate_reaches_both_extremes_of_its_range():
 
 
 RESULTS = Path(__file__).parent.parent / "results" / "tox21_sr_are"
-CHECKPOINT = RESULTS / "morgan1024_r2_h128-64_T10_s42" / "snn.pt"
+CHECKPOINT = RESULTS / "morgan1024_r2_h1000_T10_s42" / "snn.pt"
 PREPARED = RESULTS / "data" / "morgan1024_r2_s42"
 
 

@@ -12,7 +12,7 @@ from mac_sop_comparator.comparison import PointResult, ReportBuilder
 from mac_sop_comparator.config import Config, FingerprintConfig
 from mac_sop_comparator.experiments.layout import ResultsLayout
 from mac_sop_comparator.experiments.runner import ExperimentError, ExperimentRunner
-from mac_sop_comparator.experiments.stages import ann_cache_key, load_point_result
+from mac_sop_comparator.experiments.stages import ann_cache_key, load_point_result, point_key
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,15 @@ class SweepManager:
         for src, dst in zip(self._ann_files(source), self._ann_files(target)):
             shutil.copy2(src, dst)
 
+    def _up_to_date(self, config: Config, layout: ResultsLayout) -> bool:
+        """The saved models of the point were trained under this very configuration (old results lack the key)."""
+        try:
+            ann = json.loads(layout.metrics_path(ANN).read_text(encoding="utf-8"))
+            snn = json.loads(layout.metrics_path("snn").read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return False
+        return ann.get("cache_key") == ann_cache_key(config) and snn.get("config_key") == point_key(config)
+
     # Run ------------------------------------------------------------------------------------------
 
     def run(self, force: bool = False) -> SweepResult:
@@ -106,7 +115,9 @@ class SweepManager:
         for i, config in enumerate(configs, start=1):
             layout = ResultsLayout(self.results_dir, config)
             logger.info("sweep point %d/%d: %s", i, len(configs), layout.point_id)
-            if not force and (layout.report_dir / "metrics.csv").is_file():
+            if not force and (layout.report_dir / "metrics.csv").is_file() and not self._up_to_date(config, layout):
+                logger.warning("%s was trained with another configuration; running it again", layout.point_id)
+            elif not force and (layout.report_dir / "metrics.csv").is_file():
                 try:
                     point = load_point_result(config, self.results_dir)
                     ReportBuilder.build_all([point], layout.report_dir)  # refresh with the current parameters

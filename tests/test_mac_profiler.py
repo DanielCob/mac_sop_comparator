@@ -111,7 +111,7 @@ def test_is_an_op_profiler():
         OpProfiler(AnnClassifier([4, 2]))
 
 
-def test_shipped_config_gives_139392_macs():
+def test_shipped_config_gives_1026000_macs():
     cfg = load_config(Path(__file__).parent.parent / "configs" / "tox21_sr_are.yaml")
     model = ModelFactory.build(cfg.model, cfg.data.fingerprint.n_bits, "ann")
-    assert MacProfiler(model).measure().macs == 139_392
+    assert MacProfiler(model).measure().macs == 1024 * 1000 + 1000 * 2  # one hidden layer of 1000 (D-47)
