@@ -8,3 +8,5 @@ data_raw/
 .pytest_cache/
 .claude/
 .idea/
+.venv/
+venv/
