@@ -16,6 +16,7 @@ dependencies = [
     "pandas>=3.0",
     "pydantic>=2.13",
     "scikit-learn>=1.9",
+    "scipy>=1.18",
     "pyyaml>=6.0",
     "matplotlib>=3.11",
     "certifi",

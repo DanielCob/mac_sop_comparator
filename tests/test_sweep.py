@@ -163,3 +163,13 @@ def test_results_without_a_config_key_count_as_stale(workdir):
     data.pop("config_key")
     layout.metrics_path("snn").write_text(json.dumps(data))
     assert manager.run().skipped == []
+
+
+def test_collect_returns_what_is_on_disk_and_the_ids_without_a_current_result(workdir):
+    manager = SweepManager(two_t_sweep(), "out")
+    assert manager.collect() == ([], ["morgan1024_r2_h8_T2_s42", "morgan1024_r2_h8_T4_s42"])  # nothing run yet
+    manager.run()
+    points, missing = manager.collect()
+    assert [p.point_id for p in points] == ["morgan1024_r2_h8_T2_s42", "morgan1024_r2_h8_T4_s42"] and missing == []
+    changed = make({"T": [2, 4], "fingerprint": ["morgan"]}, training={**CONFIG["training"], "epochs": 3})
+    assert SweepManager(changed, "out").collect()[0] == []  # trained under another configuration: stale

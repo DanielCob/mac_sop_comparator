@@ -63,8 +63,9 @@ def test_topology_is_part_of_the_point_id():
     assert layout(model={"hidden_layers": [16]}).point_dir != layout().point_dir
 
 
-def test_sweep_dir():
+def test_sweep_and_analysis_dirs():
     assert layout().sweep_dir == Path("results/demo/sweep")
+    assert layout().analysis_dir == Path("results/demo/analysis")
 
 
 def test_an_explicit_fingerprint_selects_another_point_of_the_same_config():

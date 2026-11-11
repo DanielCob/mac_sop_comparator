@@ -3,7 +3,8 @@
     results/<experiment>/
     ├── run.log
     ├── data/<fingerprint>_s<seed>/{dataset.npz, summary.json}
-    ├── sweep/{points.csv, failed.csv}      consolidated sweep results (D-44)
+    ├── sweep/{points.csv, failed.csv, ...}   consolidated sweep results (D-44)
+    ├── analysis/{summary.*, *.png}           tables and figures of the analysis, no training involved (D-50)
     └── <fingerprint>_h<layers>_T<T>_s<seed>/       e.g. morgan1024_r2_h128-64_T10_s42
         ├── {ann,snn}.pt, {ann,snn}_metrics.json, {ann,snn}_curve.png, opreport_{ann,snn}.json
         └── report/{metrics.csv, opreports.json, *.png}
@@ -47,6 +48,10 @@ class ResultsLayout:
     @property
     def sweep_dir(self) -> Path:
         return self.experiment_dir / "sweep"
+
+    @property
+    def analysis_dir(self) -> Path:
+        return self.experiment_dir / "analysis"
 
     @property
     def point_dir(self) -> Path:

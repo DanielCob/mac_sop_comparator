@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 
-from mac_sop_comparator.comparison import ParetoAnalyzer, PointResult, ReportBuilder
+from mac_sop_comparator.comparison import Analysis, ParetoAnalyzer, PointResult, ReportBuilder, build_analysis
 from mac_sop_comparator.config import Config, ConfigError, load_config
 from mac_sop_comparator.data import DataError, prepare_data, save_prepared
 from mac_sop_comparator.experiments.layout import ResultsLayout
@@ -22,6 +22,7 @@ COMMANDS = {
     "profile": "measure the complexity of the trained models",
     "compare": "unified metrics, tables and plots",
     "sweep": "design-space sweep",
+    "analyze": "tables, figures and the ANN-SNN test from the saved results of a sweep (trains nothing)",
     "run": "prepare + train + profile + compare",
 }
 
@@ -151,6 +152,35 @@ def _sweep(config: Config, results_dir: Path, force: bool) -> int:
     return EXIT_ERROR if result.failed else EXIT_OK
 
 
+def _analyze(config: Config, results_dir: Path) -> int:
+    try:
+        points, missing = SweepManager(config, results_dir).collect()
+    except ValueError as exc:  # no sweep section, or more points than max_points
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    if not points:
+        print("error: no results for the points of this sweep; run the 'sweep' command first", file=sys.stderr)
+        return EXIT_ERROR
+    directory = ResultsLayout(results_dir, config).analysis_dir
+    try:
+        paths = build_analysis(points, directory)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+    total = len(points) + len(missing)
+    lines = [f"analysis of '{config.experiment.name}': {len(points)} of {total} points" + (f" ({len(missing)} missing or stale)" if missing else "")]
+    for c in Analysis.comparisons(points):
+        lines.append(
+            f"{c.config_id}: ROC-AUC gap ANN-SNN {c.diff_mean:.3f} [{c.ci_low:.3f}, {c.ci_high:.3f}], Wilcoxon p = {c.p_value:.2g} (n = {c.n_seeds})"
+        )
+    if "accuracy_gap" not in paths:
+        lines.append("no configuration has repeated seeds: the statistical comparison was skipped")
+    lines.append(f"files: {', '.join(sorted(p.name for p in paths.values()))}")
+    lines.append(f"results -> {directory}")
+    print("\n".join(lines))
+    return EXIT_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -173,6 +203,8 @@ def main(argv: list[str] | None = None) -> int:
             return _run(config, results_dir)
         if args.command == "sweep":
             return _sweep(config, results_dir, args.force)
+        if args.command == "analyze":
+            return _analyze(config, results_dir)
     except (DataError, FileNotFoundError, ExperimentError) as exc:
         logger.error("%s", exc)
         print(f"error: {exc}", file=sys.stderr)

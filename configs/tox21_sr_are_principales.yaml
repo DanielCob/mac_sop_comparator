@@ -1,4 +1,4 @@
-# Puntos principales de la corrida final (D-47): Morgan 1024 y MACCS 166, [1000], T = 10, con 5 semillas (D-27).
+# Puntos principales de la corrida final (D-47): Morgan 1024 y MACCS 166, [1000], T = 10, con 30 semillas (D-27, D-50).
 # Experimento aparte del barrido grande para que sus archivos consolidados en sweep/ no se mezclen.
 experiment: {name: tox21_sr_are_principales, seed: 42, device: mps, n_threads: 0}   # n_threads solo aplica a CPU; 0 = todos los núcleos
 
@@ -41,4 +41,4 @@ architecture:                     # energías relativas a un MAC (e_mac = 1); na
     b_o: "4 bytes, D-23"
     inference_batch: "1: peor caso von Neumann (D-23)"
 
-sweep: {T: [10], fingerprint: [maccs, morgan], n_bits: [1024], hidden_layers: [[1000]], seeds: [42, 43, 44, 45, 46], max_points: 50}   # 2 firmas x 5 semillas = 10 puntos
+sweep: {T: [10], fingerprint: [maccs, morgan], n_bits: [1024], hidden_layers: [[1000]], seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71], max_points: 60}   # 2 firmas x 30 semillas = 60 puntos (D-27, D-50)

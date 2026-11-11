@@ -263,3 +263,48 @@ def test_sweep_with_a_failed_point_exits_with_1(workdir, capsys, monkeypatch):
     assert main(["sweep", "--config", name, "--results-dir", "out"]) == 1
     out = capsys.readouterr().out
     assert "(1 run, 0 skipped, 1 failed)" in out and "failed morgan1024_r2_h8_T2_s42: training failed: boom" in out
+
+
+# analyze ---------------------------------------------------------------------------------------------
+
+
+def test_analyze_without_a_sweep_section_is_a_config_error(workdir, capsys):
+    assert main(["analyze", "--config", "c.yaml"]) == 2
+    assert "no 'sweep' section" in capsys.readouterr().err
+
+
+def test_analyze_before_any_sweep_asks_to_run_it(workdir, capsys):
+    name = sweep_config(workdir, {"T": [2], "fingerprint": ["morgan"]})
+    assert main(["analyze", "--config", name, "--results-dir", "out"]) == 1
+    assert "run the 'sweep' command first" in capsys.readouterr().err
+
+
+def test_analyze_writes_tables_and_figures_and_reports_the_test(workdir, capsys):
+    name = sweep_config(workdir, {"T": [2, 4], "fingerprint": ["morgan"], "seeds": [1, 2, 3]})
+    assert main(["sweep", "--config", name, "--results-dir", "out"]) == 0
+    capsys.readouterr()
+    assert main(["analyze", "--config", name, "--results-dir", "out"]) == 0
+    out = capsys.readouterr().out
+    assert "analysis of 'demo': 6 of 6 points" in out
+    assert "morgan1024_h8_T2: ROC-AUC gap ANN-SNN" in out and "Wilcoxon p = " in out and "(n = 3)" in out
+    analysis = workdir / "out" / "demo" / "analysis"
+    assert {f.name for f in analysis.iterdir()} == {
+        "summary.csv", "summary.md", "energy_breakdown.png", "cost_vs_T.png", "rates_vs_T.png", "comparison.csv", "accuracy_gap.png",
+    }  # fmt: skip
+
+
+def test_analyze_skips_the_test_when_every_configuration_has_one_seed(workdir, capsys):
+    name = sweep_config(workdir, {"T": [2, 4], "fingerprint": ["morgan"]})
+    main(["sweep", "--config", name, "--results-dir", "out"])
+    capsys.readouterr()
+    assert main(["analyze", "--config", name, "--results-dir", "out"]) == 0
+    assert "no configuration has repeated seeds" in capsys.readouterr().out
+
+
+def test_analyze_reports_the_points_that_have_no_results(workdir, capsys):
+    name = sweep_config(workdir, {"T": [2], "fingerprint": ["morgan"], "seeds": [1]})
+    main(["sweep", "--config", name, "--results-dir", "out"])
+    bigger = sweep_config(workdir, {"T": [2, 4], "fingerprint": ["morgan"], "seeds": [1]}, name="bigger.yaml")
+    capsys.readouterr()
+    assert main(["analyze", "--config", bigger, "--results-dir", "out"]) == 0
+    assert "1 of 2 points (1 missing or stale)" in capsys.readouterr().out

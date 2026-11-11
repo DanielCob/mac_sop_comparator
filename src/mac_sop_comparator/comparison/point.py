@@ -27,6 +27,12 @@ class PointResult:
     seed: int | None = None
 
     @property
+    def family(self) -> str:
+        """Fingerprint and topology without T or the seed, e.g. `morgan1024_h128-64`: one line of a plot against T."""
+        hidden = f"_h{'-'.join(map(str, self.hidden_layers))}" if self.hidden_layers else ""
+        return f"{self.fingerprint}{self.n_bits}{hidden}"
+
+    @property
     def config_id(self) -> str:
         """The point without its seed, e.g. `morgan1024_h128-64_T10`: what the seed statistics group by."""
         hidden = f"_h{'-'.join(map(str, self.hidden_layers))}" if self.hidden_layers else ""

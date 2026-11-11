@@ -22,7 +22,7 @@ CSV_COLUMNS = [
     "bytes_ann", "bytes_snn", "ai_ann", "ai_snn", "energy_ann", "energy_snn", "energy_ratio",
     "e_mac", "e_ac", "e_upd",
 ]  # fmt: skip
-COST_LABEL = "relative cost (illustrative energies)"
+COST_LABEL = "relative cost (energy of one MAC = 1)"
 ANN_COLOR, SNN_COLOR = "tab:blue", "tab:orange"
 
 

@@ -107,6 +107,20 @@ class SweepManager:
             return False
         return ann.get("cache_key") == ann_cache_key(config) and snn.get("config_key") == point_key(config)
 
+    def collect(self) -> tuple[list[PointResult], list[str]]:
+        """The results already on disk for the points of this sweep, and the ids that have none or are stale (D-50)."""
+        points, missing = [], []
+        for config in self.configs():
+            layout = ResultsLayout(self.results_dir, config)
+            if not self._up_to_date(config, layout):
+                missing.append(layout.point_id)
+                continue
+            try:
+                points.append(load_point_result(config, self.results_dir))
+            except (FileNotFoundError, ValueError):
+                missing.append(layout.point_id)
+        return points, missing
+
     # Run ------------------------------------------------------------------------------------------
 
     def run(self, force: bool = False) -> SweepResult:
