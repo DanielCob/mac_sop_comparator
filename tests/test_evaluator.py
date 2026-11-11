@@ -50,7 +50,9 @@ def test_matches_scikit_learn_on_random_scores():
     model = AnnClassifier([10, 6, 2])
     outputs, scores, y = collect_outputs(model, data)
     ev = Evaluator()
-    assert ev.roc_auc(model, data) == pytest.approx(roc_auc_score(y.numpy(), torch.softmax(outputs, dim=1)[:, 1].numpy()))
+    # the model scores in float64 (positive_scores); a float32 reference reorders near-ties of an untrained net per platform
+    reference = torch.softmax(outputs.double(), dim=1)[:, 1].numpy()
+    assert ev.roc_auc(model, data) == pytest.approx(roc_auc_score(y.numpy(), reference))
     assert ev.balanced_accuracy(model, data) == pytest.approx(balanced_accuracy_score(y.numpy(), outputs.argmax(1).numpy()))
 
 
