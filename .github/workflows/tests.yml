@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # The default PyTorch wheel for Linux pulls the CUDA libraries (several GB); the runner has no GPU.
+      - name: Install PyTorch (CPU build)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install the package and pytest
+        run: pip install -e ".[dev]"
+
+      # The tests that need MPS or the real Tox21 data skip themselves on the runner (-rs lists them).
+      - name: Run the tests
+        run: python -m pytest -q -rs
